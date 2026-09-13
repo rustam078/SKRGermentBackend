@@ -1,6 +1,7 @@
 package com.skr.erp.dto.response;
 
 import com.skr.erp.common.constants.InvestmentType;
+import com.skr.erp.common.constants.PaymentStatus;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -29,4 +30,7 @@ public class InvestmentResponse {
     private Integer itemCount;
 
     private BigDecimal grandTotal;
+
+    private BigDecimal amountPaid;
+    private PaymentStatus paymentStatus;
 }

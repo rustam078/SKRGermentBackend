@@ -1,0 +1,25 @@
+package com.skr.erp.qr;
+
+import com.skr.erp.qr.dto.GenerateUnitsRequest;
+import com.skr.erp.qr.dto.GenerateUnitsResponse;
+import com.skr.erp.qr.dto.ProductUnitResponse;
+
+import java.util.List;
+import java.util.UUID;
+
+public interface QrUnitService {
+
+    GenerateUnitsResponse generateUnits(String batchNumber, GenerateUnitsRequest request);
+
+    List<ProductUnitResponse> listUnits(String batchNumber);
+
+    ProductUnitResponse scanLookup(String code);
+
+    ProductUnitResponse voidUnit(String serial);
+
+    /**
+     * Mark scanned units SOLD as part of a sale. Validates each serial belongs to the
+     * batch and is still AVAILABLE. Called by the sales flow; does not touch batch qty.
+     */
+    void consumeForSale(String batchNumber, List<String> serials, UUID saleOrderId);
+}

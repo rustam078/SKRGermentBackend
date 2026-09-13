@@ -45,6 +45,9 @@ public class DashboardResponse {
     // Revenue minus production cost and investment/expense over the range.
     private BigDecimal netProfit;
 
+    // Gross profit on sales = revenue - cost of goods sold (range).
+    private BigDecimal grossProfit;
+
     // ── Series & breakdowns ──────────────────────────────
     private List<SeriesPoint> revenueSeries;
     private List<Breakdown> paymentBreakdown;

@@ -29,6 +29,16 @@ public interface SalesOrderItemRepository extends JpaRepository<SalesOrderItem, 
             """)
     BigDecimal calculateTotalProfit();
 
+    // Gross profit = revenue - cost of goods sold, for sales in the range.
+    @Query("""
+            SELECT COALESCE(SUM(i.lineTotal - (i.unitPrice * i.quantity)), 0)
+            FROM SalesOrderItem i
+            WHERE i.salesOrder.createdAt >= :start AND i.salesOrder.createdAt < :end
+            """)
+    BigDecimal grossProfitBetween(
+            @Param("start") java.time.LocalDateTime start,
+            @Param("end") java.time.LocalDateTime end);
+
     @Query("""
             SELECT i.product.id, i.product.name,
                    SUM(i.quantity), COALESCE(SUM(i.lineTotal), 0)

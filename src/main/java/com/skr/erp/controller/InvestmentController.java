@@ -2,13 +2,18 @@ package com.skr.erp.controller;
 
 import com.skr.erp.common.constants.InvestmentType;
 import com.skr.erp.common.response.CommonResponse;
+import com.skr.erp.dto.request.AddPaymentRequest;
 import com.skr.erp.dto.request.CreateInvestmentRequest;
 import com.skr.erp.dto.response.InvestmentDetailsResponse;
+import com.skr.erp.dto.response.InvestmentPaymentResponse;
 import com.skr.erp.dto.response.InvestmentResponse;
 import com.skr.erp.service.InvestmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -91,5 +96,45 @@ public class InvestmentController {
                 .success(true)
                 .message("Investment deleted successfully")
                 .build();
+    }
+
+    // ── Payments ──────────────────────────────────
+    @PostMapping("/{id}/payments")
+    public CommonResponse<InvestmentDetailsResponse> addPayment(
+            @PathVariable UUID id,
+            @Valid @RequestBody AddPaymentRequest request) {
+
+        return CommonResponse
+                .<InvestmentDetailsResponse>builder()
+                .success(true)
+                .message("Payment recorded successfully")
+                .data(investmentService.addPayment(id, request))
+                .build();
+    }
+
+    @GetMapping("/{id}/payments")
+    public CommonResponse<List<InvestmentPaymentResponse>> getPayments(
+            @PathVariable UUID id) {
+
+        return CommonResponse
+                .<List<InvestmentPaymentResponse>>builder()
+                .success(true)
+                .message("Payments fetched successfully")
+                .data(investmentService.getPayments(id))
+                .build();
+    }
+
+    // ── Invoice PDF ───────────────────────────────
+    @GetMapping("/{id}/invoice/pdf")
+    public ResponseEntity<byte[]> getInvoicePdf(
+            @PathVariable UUID id) {
+
+        byte[] pdf = investmentService.exportInvoicePdf(id);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=purchase-invoice-" + id + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 }

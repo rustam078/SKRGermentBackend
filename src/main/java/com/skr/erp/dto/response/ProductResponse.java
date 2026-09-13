@@ -4,6 +4,7 @@ import com.skr.erp.common.constants.ProductSource;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -27,6 +28,10 @@ public class ProductResponse {
     private Integer activePieceCodes;
 
     private Integer inactivePieceCodes;
+
+    // Current effective selling price (null when none configured).
+    private BigDecimal sellingPrice;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

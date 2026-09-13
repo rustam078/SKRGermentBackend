@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -15,6 +17,19 @@ public class SystemSettingServiceImpl
         implements SystemSettingService {
 
     private final SystemSettingRepository repository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SystemSettingResponse> getAll() {
+
+        return repository.findAll().stream()
+                .map(s -> SystemSettingResponse.builder()
+                        .key(s.getSettingKey())
+                        .value(s.getSettingValue())
+                        .description(s.getDescription())
+                        .build())
+                .toList();
+    }
 
     @Override
     @Transactional(readOnly = true)

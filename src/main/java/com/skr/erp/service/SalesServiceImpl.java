@@ -36,6 +36,7 @@ public class SalesServiceImpl implements  SalesService{
     private final SalesOrderItemRepository salesOrderItemRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
     private final SystemSettingRepository systemSettingRepository;
+    private final com.skr.erp.qr.QrUnitService qrUnitService;
 
     private static final String SALES_INVOICE_TEMPLATE_KEY = "SALES_INVOICE_TEMPLATE";
 
@@ -67,11 +68,14 @@ public class SalesServiceImpl implements  SalesService{
         // Validate duplicate products
         // ==========================
 
-        Set<UUID> productIds = new HashSet<>();
+        // A line is unique per (product + batch). Same product from two different
+        // scanned batches is allowed (two lines); the same product+batch twice is not.
+        Set<String> lineKeys = new HashSet<>();
 
         for (CreateSaleOrderItemRequest item : request.getItems()) {
 
-            if (!productIds.add(item.getProductId())) {
+            String lineKey = item.getProductId() + "|" + (item.getBatchNumber() == null ? "" : item.getBatchNumber());
+            if (!lineKeys.add(lineKey)) {
                 throw new BadRequestException("Duplicate product selected.");
             }
 
@@ -81,6 +85,16 @@ public class SalesServiceImpl implements  SalesService{
 
             if (item.getSellingPrice().compareTo(BigDecimal.ZERO) < 0) {
                 throw new BadRequestException("Selling price cannot be negative.");
+            }
+
+            // Scanned lines must carry one serial per unit sold.
+            if (item.getBatchNumber() != null) {
+                int serialCount = item.getSerials() == null ? 0 : item.getSerials().size();
+                if (serialCount != item.getQuantity().intValueExact()) {
+                    throw new BadRequestException(
+                            "Scanned line for batch " + item.getBatchNumber()
+                                    + " must have one serial per unit.");
+                }
             }
         }
 
@@ -117,29 +131,30 @@ public class SalesServiceImpl implements  SalesService{
                     .orElseThrow(() ->
                             new BusinessException("Product not found."));
 
-            List<InventoryBatch> batches =
-                    inventoryBatchRepository.findAvailableBatchesForSale(product.getId());
+            if (item.getBatchNumber() != null) {
+                // Scanned line: deduct exactly this batch and mark its units SOLD.
+                deductSpecificBatch(order, product, item);
+            } else {
+                // Typed line: FIFO deduction across the product's available batches.
+                List<InventoryBatch> batches =
+                        inventoryBatchRepository.findAvailableBatchesForSale(product.getId());
 
-            if (batches.isEmpty()) {
-                throw new BusinessException(product.getName() + " is out of stock.");
+                if (batches.isEmpty()) {
+                    throw new BusinessException(product.getName() + " is out of stock.");
+                }
+
+                BigDecimal totalAvailable = batches.stream()
+                        .map(InventoryBatch::getQuantityAvailable)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                if (totalAvailable.compareTo(item.getQuantity()) < 0) {
+                    throw new BusinessException(
+                            product.getName() + " has only " + totalAvailable + " available."
+                    );
+                }
+
+                deductInventory(order, product, item, batches);
             }
-
-            BigDecimal totalAvailable = batches.stream()
-                    .map(InventoryBatch::getQuantityAvailable)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            if (totalAvailable.compareTo(item.getQuantity()) < 0) {
-                throw new BusinessException(
-                        product.getName() + " has only " + totalAvailable + " available."
-                );
-            }
-
-            deductInventory(
-                    order,
-                    product,
-                    item,
-                    batches
-            );
 
             subtotal = subtotal.add(
                     item.getSellingPrice()
@@ -639,6 +654,66 @@ public class SalesServiceImpl implements  SalesService{
 
         salesOrderItemRepository.save(orderItem);
     }
+
+    /**
+     * Deduct one specific batch for a scanned line and mark its units SOLD.
+     * Unlike FIFO, the exact batch on the QR tag is consumed.
+     */
+    private void deductSpecificBatch(
+            SalesOrder order,
+            Product product,
+            CreateSaleOrderItemRequest item) {
+
+        InventoryBatch batch = inventoryBatchRepository.findByBatchNumber(item.getBatchNumber())
+                .orElseThrow(() -> new BusinessException("Batch " + item.getBatchNumber() + " not found."));
+
+        if (!batch.getProduct().getId().equals(product.getId())) {
+            throw new BusinessException(
+                    "Batch " + item.getBatchNumber() + " does not belong to " + product.getName() + ".");
+        }
+
+        BigDecimal available = batch.getQuantityAvailable();
+        if (available.compareTo(item.getQuantity()) < 0) {
+            throw new BusinessException(
+                    "Batch " + item.getBatchNumber() + " has only " + available + " available.");
+        }
+
+        // Mark the scanned units SOLD (validates each serial is AVAILABLE in this batch).
+        qrUnitService.consumeForSale(item.getBatchNumber(), item.getSerials(), order.getId());
+
+        BigDecimal remainingInBatch = available.subtract(item.getQuantity());
+        batch.setQuantityAvailable(remainingInBatch);
+        if (remainingInBatch.compareTo(BigDecimal.ZERO) == 0) {
+            batch.setStatus(com.skr.erp.common.constants.InventoryBatchStatus.SOLD);
+        }
+
+        SalesOrderItem orderItem = SalesOrderItem.builder()
+                .salesOrder(order)
+                .product(product)
+                .quantity(item.getQuantity())
+                .discount(BigDecimal.ZERO)
+                .unitPrice(batch.getUnitCost())
+                .sellingPrice(item.getSellingPrice())
+                .batchNumber(item.getBatchNumber())
+                .lineTotal(item.getSellingPrice()
+                        .multiply(item.getQuantity())
+                        .setScale(2, RoundingMode.HALF_UP))
+                .build();
+
+        orderItem = salesOrderItemRepository.save(orderItem);
+
+        InventoryTransaction transaction = InventoryTransaction.builder()
+                .salesOrderItem(orderItem)
+                .batch(batch)
+                .product(product)
+                .transactionType(InventoryTransactionType.SALE)
+                .quantity(item.getQuantity())
+                .unitCost(batch.getUnitCost())
+                .build();
+
+        inventoryTransactionRepository.save(transaction);
+    }
+
     private String nextInvoiceNumber() {
         long count = salesOrderRepository.count() + 1;
         return "INV-" + String.format("%06d", count);

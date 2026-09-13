@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -21,4 +22,13 @@ public class CreateSaleOrderItemRequest {
     @NotNull
     @DecimalMin("0.00")
     private BigDecimal sellingPrice;
+
+    /**
+     * Scanned lines only: the specific batch this line came from. When present the sale
+     * deducts THIS batch (not FIFO) and marks {@link #serials} SOLD. Null for typed lines.
+     */
+    private String batchNumber;
+
+    /** Scanned unit serials backing this line (size should equal quantity). */
+    private List<String> serials;
 }

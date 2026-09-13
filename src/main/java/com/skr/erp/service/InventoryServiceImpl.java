@@ -198,10 +198,10 @@ public class InventoryServiceImpl implements InventoryService {
     private BigDecimal getCurrentSalePrice(UUID productId) {
 
         return productMaterialCostRepository
-                .findTopByProductIdAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(
+                .findTopByProductIdAndSalePriceNotNullAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(
                         productId,
                         LocalDate.now())
-                .map(mc -> mc.getSalePrice() == null ? null : scale2(mc.getSalePrice()))
+                .map(mc -> scale2(mc.getSalePrice()))
                 .orElse(null);
     }
 

@@ -76,6 +76,9 @@ public class DashboardServiceImpl implements DashboardService {
                 .subtract(productionAmount)
                 .subtract(investmentTotal);
 
+        // Gross profit on sales = revenue - cost of goods sold over the range.
+        BigDecimal grossProfit = bd(salesOrderItemRepository.grossProfitBetween(start, end));
+
         // ── Revenue trend ────────────────────────────────
         List<DashboardResponse.SeriesPoint> revenueSeries =
                 salesOrderRepository.revenueSeriesBetween(start, end).stream()
@@ -140,6 +143,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .activeEmployees(activeEmployees)
                 .totalEmployees(totalEmployees)
                 .netProfit(netProfit)
+                .grossProfit(grossProfit)
                 .revenueSeries(revenueSeries)
                 .paymentBreakdown(paymentBreakdown)
                 .topProducts(topProducts)

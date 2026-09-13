@@ -38,4 +38,8 @@ public class SalesOrderItem extends BaseEntity {
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal lineTotal;
+
+    /** Set for scanned (batch-specific) lines; null for typed FIFO lines. */
+    @Column(name = "batch_number", length = 40)
+    private String batchNumber;
 }

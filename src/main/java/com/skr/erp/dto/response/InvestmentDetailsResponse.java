@@ -1,6 +1,7 @@
 package com.skr.erp.dto.response;
 
 import com.skr.erp.common.constants.InvestmentType;
+import com.skr.erp.common.constants.PaymentStatus;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -38,6 +39,12 @@ public class InvestmentDetailsResponse {
     private BigDecimal otherCharge;
 
     private BigDecimal grandTotal;
+
+    // Payment tracking
+    private BigDecimal amountPaid;
+    private BigDecimal amountDue;
+    private PaymentStatus paymentStatus;
+    private List<InvestmentPaymentResponse> payments;
 
     private List<InvestmentItemResponse> items;
 }

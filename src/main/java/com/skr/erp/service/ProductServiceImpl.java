@@ -28,6 +28,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductionEntryDetailRepository productionEntryDetailRepository;
     private final ProductPieceCodeRepository productPieceCodeRepository;
     private final InvestmentItemRepository investmentItemRepository;
+    private final ProductMaterialCostRepository productMaterialCostRepository;
 
     @Override
     public ProductResponse create(CreateProductRequest request) {
@@ -59,6 +60,14 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<ProductResponse> getAll() {
+
+        // One query → current sale price per product (avoids N+1).
+        java.util.Map<UUID, BigDecimal> salePriceByProduct = new java.util.HashMap<>();
+        for (Object[] row : productMaterialCostRepository.currentSalePrices()) {
+            if (row[0] != null && row[1] != null) {
+                salePriceByProduct.put((UUID) row[0], (BigDecimal) row[1]);
+            }
+        }
 
         return productRepository.findAll()
                 .stream()
@@ -94,6 +103,8 @@ public class ProductServiceImpl implements ProductService {
 
                             .inactivePieceCodes(
                                     inactiveCodes)
+                            .sellingPrice(
+                                    salePriceByProduct.get(product.getId()))
                             .createdAt(product.getCreatedAt())
                             .updatedAt(product.getUpdatedAt())
                             .build();

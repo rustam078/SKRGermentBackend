@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/settings")
 @RequiredArgsConstructor
@@ -14,6 +16,12 @@ import org.springframework.web.bind.annotation.*;
 public class SystemSettingController {
 
     private final SystemSettingService service;
+
+    @GetMapping
+    public ResponseEntity<List<SystemSettingResponse>> getAll() {
+
+        return ResponseEntity.ok(service.getAll());
+    }
 
     @GetMapping("/{key}")
     public ResponseEntity<SystemSettingResponse> get(

@@ -1,6 +1,7 @@
 package com.skr.erp.dto.request;
 
 import com.skr.erp.common.constants.InvestmentType;
+import com.skr.erp.common.constants.PaymentMode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -35,4 +36,11 @@ public class CreateInvestmentRequest {
     @Valid
     @NotEmpty
     private List<CreateInvestmentItemRequest> items;
+
+    // ── Optional payment recorded at creation time ──
+    // fullPayment=true pays the whole grand total; otherwise paymentAmount (if > 0) is used.
+    private Boolean fullPayment;
+    private BigDecimal paymentAmount;
+    private PaymentMode paymentMode;
+    private LocalDate paymentDate;
 }

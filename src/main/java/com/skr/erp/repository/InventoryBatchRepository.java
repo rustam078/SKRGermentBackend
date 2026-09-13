@@ -17,6 +17,8 @@ public interface InventoryBatchRepository extends JpaRepository<InventoryBatch, 
 
     List<InventoryBatch> findByProductId(UUID productId);
 
+    java.util.Optional<InventoryBatch> findByBatchNumber(String batchNumber);
+
     @Query(value = "SELECT nextval('inventory_batch_seq')",
             nativeQuery = true)
     Long getNextBatchSequence();
