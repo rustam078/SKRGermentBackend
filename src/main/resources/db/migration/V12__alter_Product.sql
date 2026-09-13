@@ -1,0 +1,2 @@
+ALTER TABLE product
+ADD COLUMN icon_name VARCHAR(100);
