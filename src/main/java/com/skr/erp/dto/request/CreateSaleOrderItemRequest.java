@@ -23,6 +23,10 @@ public class CreateSaleOrderItemRequest {
     @DecimalMin("0.00")
     private BigDecimal sellingPrice;
 
+    /** Per-line discount amount (currency). Optional; null/absent means no discount. */
+    @DecimalMin("0.00")
+    private BigDecimal discount;
+
     /**
      * Scanned lines only: the specific batch this line came from. When present the sale
      * deducts THIS batch (not FIFO) and marks {@link #serials} SOLD. Null for typed lines.

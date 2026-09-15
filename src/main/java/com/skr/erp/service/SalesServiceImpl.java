@@ -87,6 +87,15 @@ public class SalesServiceImpl implements  SalesService{
                 throw new BadRequestException("Selling price cannot be negative.");
             }
 
+            // Discount cannot exceed the line's gross (sellingPrice * quantity).
+            BigDecimal lineGross = item.getSellingPrice().multiply(item.getQuantity());
+            if (nz(item.getDiscount()).compareTo(BigDecimal.ZERO) < 0) {
+                throw new BadRequestException("Discount cannot be negative.");
+            }
+            if (nz(item.getDiscount()).compareTo(lineGross) > 0) {
+                throw new BadRequestException("Discount cannot exceed the line amount.");
+            }
+
             // Scanned lines must carry one serial per unit sold.
             if (item.getBatchNumber() != null) {
                 int serialCount = item.getSerials() == null ? 0 : item.getSerials().size();
@@ -120,6 +129,7 @@ public class SalesServiceImpl implements  SalesService{
         salesOrderRepository.save(order);
 
         BigDecimal subtotal = BigDecimal.ZERO;
+        BigDecimal totalDiscount = BigDecimal.ZERO;
 
         // ==========================
         // Process Products
@@ -160,12 +170,13 @@ public class SalesServiceImpl implements  SalesService{
                     item.getSellingPrice()
                             .multiply(item.getQuantity())
             );
+            totalDiscount = totalDiscount.add(nz(item.getDiscount()));
         }
 
         order.setSubtotal(subtotal);
-        order.setDiscount(BigDecimal.ZERO);
+        order.setDiscount(totalDiscount);
         order.setGrandTotal(
-                subtotal.subtract(order.getDiscount())
+                subtotal.subtract(totalDiscount)
         );
 
         salesOrderRepository.save(order);
@@ -297,6 +308,11 @@ public class SalesServiceImpl implements  SalesService{
 
     private static String fmtQty(BigDecimal q) {
         return q != null ? q.stripTrailingZeros().toPlainString() : "0";
+    }
+
+    /** Null-safe BigDecimal — treats a missing value as zero. */
+    private static BigDecimal nz(BigDecimal v) {
+        return v != null ? v : BigDecimal.ZERO;
     }
 
     private String esc(String s) {
@@ -580,7 +596,7 @@ public class SalesServiceImpl implements  SalesService{
                 .salesOrder(order)
                 .product(product)
                 .quantity(item.getQuantity())
-                .discount(BigDecimal.ZERO)
+                .discount(nz(item.getDiscount()))
                 .lineTotal(BigDecimal.ZERO)
                 .unitPrice(BigDecimal.ZERO) // Will be updated after calculating average cost
                 .sellingPrice(item.getSellingPrice())
@@ -649,6 +665,7 @@ public class SalesServiceImpl implements  SalesService{
         orderItem.setLineTotal(
                 item.getSellingPrice()
                         .multiply(item.getQuantity())
+                        .subtract(nz(item.getDiscount()))
                         .setScale(2, RoundingMode.HALF_UP)
         );
 
@@ -691,12 +708,13 @@ public class SalesServiceImpl implements  SalesService{
                 .salesOrder(order)
                 .product(product)
                 .quantity(item.getQuantity())
-                .discount(BigDecimal.ZERO)
+                .discount(nz(item.getDiscount()))
                 .unitPrice(batch.getUnitCost())
                 .sellingPrice(item.getSellingPrice())
                 .batchNumber(item.getBatchNumber())
                 .lineTotal(item.getSellingPrice()
                         .multiply(item.getQuantity())
+                        .subtract(nz(item.getDiscount()))
                         .setScale(2, RoundingMode.HALF_UP))
                 .build();
 

@@ -22,4 +22,11 @@ public interface QrUnitService {
      * batch and is still AVAILABLE. Called by the sales flow; does not touch batch qty.
      */
     void consumeForSale(String batchNumber, List<String> serials, UUID saleOrderId);
+
+    /**
+     * Remove up to {@code count} AVAILABLE labels from a batch (newest first) when its stock is
+     * reduced, so the QR labels stay in step with the stock. SOLD/VOID units are never removed.
+     * Returns how many were actually removed.
+     */
+    int removeAvailableUnits(String batchNumber, int count);
 }

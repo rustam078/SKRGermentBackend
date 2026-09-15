@@ -15,6 +15,9 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, UUID> 
 
     List<ProductUnit> findByBatchNumberOrderBySerialAsc(String batchNumber);
 
+    /** AVAILABLE units of a batch, newest serial first — used to trim labels when stock is reduced. */
+    List<ProductUnit> findByBatchNumberAndStatusOrderBySerialDesc(String batchNumber, ProductUnitStatus status);
+
     long countByBatchNumber(String batchNumber);
 
     long countByBatchNumberAndStatus(String batchNumber, ProductUnitStatus status);

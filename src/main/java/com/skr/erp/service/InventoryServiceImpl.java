@@ -11,6 +11,7 @@ import com.skr.erp.entity.*;
 import com.skr.erp.exception.BusinessException;
 import com.skr.erp.repository.InventoryBatchRepository;
 import com.skr.erp.repository.ProductMaterialCostRepository;
+import com.skr.erp.qr.QrUnitService;
 import com.skr.erp.repository.ProductRepository;
 import com.skr.erp.repository.SystemSettingRepository;
 import com.skr.erp.util.BatchNumberGenerator;
@@ -35,6 +36,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final ProductMaterialCostRepository productMaterialCostRepository;
     private final SystemSettingRepository repository;
     private final ProductRepository productRepository;
+    private final QrUnitService qrUnitService;
 
     @Override
     @Transactional
@@ -329,6 +331,12 @@ public class InventoryServiceImpl implements InventoryService {
         batch.setRemarks(combined);
 
         inventoryBatchRepository.save(batch);
+
+        // Keep QR labels in step with stock: when stock is reduced, trim that many
+        // AVAILABLE labels (newest first). SOLD/VOID labels are never removed.
+        if (decrease) {
+            qrUnitService.removeAvailableUnits(batch.getBatchNumber(), qty.intValue());
+        }
 
         BigDecimal batchValue = newAvailable.multiply(batch.getUnitCost());
         return InventoryBatchResponse.builder()

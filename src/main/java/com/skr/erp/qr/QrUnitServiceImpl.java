@@ -145,6 +145,22 @@ public class QrUnitServiceImpl implements QrUnitService {
         }
     }
 
+    @Override
+    public int removeAvailableUnits(String batchNumber, int count) {
+        if (count <= 0) {
+            return 0;
+        }
+        List<ProductUnit> available = productUnitRepository
+                .findByBatchNumberAndStatusOrderBySerialDesc(batchNumber, ProductUnitStatus.AVAILABLE);
+        if (available.isEmpty()) {
+            return 0;
+        }
+        // Drop the newest AVAILABLE labels first; never touch SOLD/VOID units.
+        List<ProductUnit> toRemove = available.subList(0, Math.min(count, available.size()));
+        productUnitRepository.deleteAll(toRemove);
+        return toRemove.size();
+    }
+
     private BigDecimal currentSalePrice(UUID productId) {
         return productMaterialCostRepository
                 .findTopByProductIdAndSalePriceNotNullAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(
