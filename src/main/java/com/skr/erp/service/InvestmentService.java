@@ -20,7 +20,8 @@ public interface InvestmentService {
             UUID vendorId,
             LocalDate fromDate,
             LocalDate toDate,
-            InvestmentType type);
+            InvestmentType type,
+            String search);
 
     InvestmentDetailsResponse getById(
             UUID id);

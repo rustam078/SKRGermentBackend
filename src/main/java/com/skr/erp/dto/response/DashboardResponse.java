@@ -42,6 +42,10 @@ public class DashboardResponse {
     private long activeEmployees;
     private long totalEmployees;
 
+    // ── Customers (date-ranged) ──────────────────────────
+    private long newCustomerCount;          // first-ever order falls in the range
+    private List<TopCustomer> topCustomers; // most orders in the range
+
     // Revenue minus production cost and investment/expense over the range.
     private BigDecimal netProfit;
 
@@ -85,6 +89,15 @@ public class DashboardResponse {
         private String name;
         private long quantity;
         private BigDecimal earnings;
+    }
+
+    @Data
+    @Builder
+    public static class TopCustomer {
+        private String name;
+        private String mobile;
+        private long orders;
+        private BigDecimal spend;
     }
 
     @Data

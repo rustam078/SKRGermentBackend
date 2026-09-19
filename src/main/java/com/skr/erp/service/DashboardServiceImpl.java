@@ -1,6 +1,7 @@
 package com.skr.erp.service;
 
 import com.skr.erp.dto.response.DashboardResponse;
+import com.skr.erp.dto.response.DailyReportRow;
 import com.skr.erp.entity.SalesOrder;
 import com.skr.erp.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,8 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 @Service
 @RequiredArgsConstructor
@@ -101,7 +104,7 @@ public class DashboardServiceImpl implements DashboardService {
 
         // ── Top products ─────────────────────────────────
         List<DashboardResponse.TopProduct> topProducts =
-                salesOrderItemRepository.topProductsBetween(start, end, PageRequest.of(0, 6)).stream()
+                salesOrderItemRepository.topProductsBetween(start, end, PageRequest.of(0, 12)).stream()
                         .map(r -> DashboardResponse.TopProduct.builder()
                                 .name(r[0] != null ? r[0].toString() : "Unknown")
                                 .quantity(lng(r[1]))
@@ -111,13 +114,25 @@ public class DashboardServiceImpl implements DashboardService {
 
         // ── Top employees by production (piece-rate output) ──
         List<DashboardResponse.TopEmployee> topEmployees =
-                productionEntryDetailRepository.topEmployeesBetween(from, to, PageRequest.of(0, 6)).stream()
+                productionEntryDetailRepository.topEmployeesBetween(from, to, PageRequest.of(0, 20)).stream()
                         .map(r -> DashboardResponse.TopEmployee.builder()
                                 .name(r[0] != null ? r[0].toString() : "Unknown")
                                 .quantity(lng(r[1]))
                                 .earnings(bd(r[2]))
                                 .build())
                         .toList();
+
+        // ── Customers (date-ranged) ──────────────────────
+        List<DashboardResponse.TopCustomer> topCustomers =
+                salesOrderRepository.topCustomersBetween(start, end, PageRequest.of(0, 10)).stream()
+                        .map(r -> DashboardResponse.TopCustomer.builder()
+                                .name(r[0] != null ? r[0].toString() : "Walk-in")
+                                .mobile(r[1] != null ? r[1].toString() : "")
+                                .orders(lng(r[2]))
+                                .spend(bd(r[3]))
+                                .build())
+                        .toList();
+        long newCustomerCount = salesOrderRepository.newCustomerMobilesBetween(start, end).size();
 
         // ── Recent sales ─────────────────────────────────
         List<DashboardResponse.RecentSale> recentSales =
@@ -142,6 +157,8 @@ public class DashboardServiceImpl implements DashboardService {
                 .lowStockCount(lowStockCount)
                 .activeEmployees(activeEmployees)
                 .totalEmployees(totalEmployees)
+                .newCustomerCount(newCustomerCount)
+                .topCustomers(topCustomers)
                 .netProfit(netProfit)
                 .grossProfit(grossProfit)
                 .revenueSeries(revenueSeries)
@@ -150,6 +167,55 @@ public class DashboardServiceImpl implements DashboardService {
                 .topEmployees(topEmployees)
                 .recentSales(recentSales)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DailyReportRow> getDailyReport(LocalDate fromDate, LocalDate toDate) {
+
+        LocalDate to = (toDate != null) ? toDate : LocalDate.now();
+        LocalDate from = (fromDate != null) ? fromDate : to.minusDays(29);
+        if (from.isAfter(to)) { LocalDate tmp = from; from = to; to = tmp; }
+
+        LocalDateTime start = from.atStartOfDay();
+        LocalDateTime end = to.plusDays(1).atStartOfDay();
+
+        // date -> [investment, wages, sales, cogs]
+        Map<LocalDate, BigDecimal[]> byDate = new TreeMap<>();
+
+        for (Object[] r : investmentRepository.investmentSeriesBetween(from, to)) {
+            byDate.computeIfAbsent(toLocalDate(r[0]), k -> zeros())[0] = bd(r[1]);
+        }
+        for (Object[] r : productionEntryDetailRepository.wagesSeriesBetween(from, to)) {
+            byDate.computeIfAbsent(toLocalDate(r[0]), k -> zeros())[1] = bd(r[1]);
+        }
+        for (Object[] r : salesOrderRepository.revenueSeriesBetween(start, end)) {
+            byDate.computeIfAbsent(toLocalDate(r[0]), k -> zeros())[2] = bd(r[1]);
+        }
+        for (Object[] r : salesOrderItemRepository.cogsSeriesBetween(start, end)) {
+            byDate.computeIfAbsent(toLocalDate(r[0]), k -> zeros())[3] = bd(r[1]);
+        }
+
+        return byDate.entrySet().stream()
+                .map(e -> DailyReportRow.builder()
+                        .date(e.getKey().toString())
+                        .investment(e.getValue()[0])
+                        .wages(e.getValue()[1])
+                        .sales(e.getValue()[2])
+                        .cogs(e.getValue()[3])
+                        .build())
+                .toList();
+    }
+
+    private static BigDecimal[] zeros() {
+        return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO};
+    }
+
+    private static LocalDate toLocalDate(Object o) {
+        if (o instanceof LocalDate d) return d;
+        if (o instanceof java.sql.Date d) return d.toLocalDate();
+        if (o instanceof java.util.Date d) return new java.sql.Date(d.getTime()).toLocalDate();
+        return LocalDate.parse(o.toString());
     }
 
     private DashboardResponse.RecentSale toRecentSale(SalesOrder s) {

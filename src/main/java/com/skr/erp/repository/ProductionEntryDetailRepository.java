@@ -42,4 +42,16 @@ public interface ProductionEntryDetailRepository
             @Param("from") LocalDate from,
             @Param("to") LocalDate to,
             Pageable pageable);
+
+    @Query("""
+            SELECT pe.productionDate, COALESCE(SUM(d.amountSnapshot), 0)
+            FROM ProductionEntryDetail d
+            JOIN d.productionEntry pe
+            WHERE pe.productionDate >= :from AND pe.productionDate <= :to
+            GROUP BY pe.productionDate
+            ORDER BY pe.productionDate
+            """)
+    List<Object[]> wagesSeriesBetween(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
 }

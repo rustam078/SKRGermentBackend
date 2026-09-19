@@ -371,12 +371,21 @@ public class InvestmentServiceImpl
             UUID vendorId,
             LocalDate fromDate,
             LocalDate toDate,
-            InvestmentType type) {
+            InvestmentType type,
+            String search) {
 
         Specification<Investment> specification =
                 (root, query, cb) -> {
 
                     List<Predicate> predicates = new ArrayList<>();
+
+                    // Partial, case-insensitive match on invoice number.
+                    if (search != null && !search.isBlank()) {
+                        predicates.add(
+                                cb.like(
+                                        cb.lower(root.get("invoiceNumber")),
+                                        "%" + search.trim().toLowerCase() + "%"));
+                    }
 
                     if(type!=null){
                         predicates.add(

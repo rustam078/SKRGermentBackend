@@ -39,6 +39,18 @@ public interface SalesOrderItemRepository extends JpaRepository<SalesOrderItem, 
             @Param("start") java.time.LocalDateTime start,
             @Param("end") java.time.LocalDateTime end);
 
+    // Cost of goods sold per day (unit cost * qty), for the daily report.
+    @Query("""
+            SELECT CAST(i.salesOrder.createdAt AS date), COALESCE(SUM(i.unitPrice * i.quantity), 0)
+            FROM SalesOrderItem i
+            WHERE i.salesOrder.createdAt >= :start AND i.salesOrder.createdAt < :end
+            GROUP BY CAST(i.salesOrder.createdAt AS date)
+            ORDER BY CAST(i.salesOrder.createdAt AS date)
+            """)
+    List<Object[]> cogsSeriesBetween(
+            @Param("start") java.time.LocalDateTime start,
+            @Param("end") java.time.LocalDateTime end);
+
     @Query("""
             SELECT i.product.id, i.product.name,
                    SUM(i.quantity), COALESCE(SUM(i.lineTotal), 0)

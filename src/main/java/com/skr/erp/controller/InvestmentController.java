@@ -56,7 +56,9 @@ public class InvestmentController {
             @RequestParam(required = false)
             UUID vendorId,
             @RequestParam(required = false)
-            InvestmentType type) {
+            InvestmentType type,
+            @RequestParam(required = false)
+            String search) {
 
         return CommonResponse
                 .<List<InvestmentResponse>>builder()
@@ -67,7 +69,8 @@ public class InvestmentController {
                                 vendorId,
                                 fromDate,
                                 toDate,
-                                type
+                                type,
+                                search
                                 ))
                 .build();
     }

@@ -74,6 +74,29 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID>,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end);
 
+    @Query("""
+    SELECT s.customerName, s.customerMobile, COUNT(s), COALESCE(SUM(s.grandTotal), 0)
+    FROM SalesOrder s
+    WHERE s.createdAt >= :start AND s.createdAt < :end
+    GROUP BY s.customerMobile, s.customerName
+    ORDER BY COUNT(s) DESC
+""")
+    List<Object[]> topCustomersBetween(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable);
+
+    // Mobiles whose FIRST-ever order falls in the range = new customers acquired in the period.
+    @Query("""
+    SELECT s.customerMobile
+    FROM SalesOrder s
+    GROUP BY s.customerMobile
+    HAVING MIN(s.createdAt) >= :start AND MIN(s.createdAt) < :end
+""")
+    List<String> newCustomerMobilesBetween(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
+
     @Query("SELECT s FROM SalesOrder s ORDER BY s.createdAt DESC")
     List<SalesOrder> findRecent(Pageable pageable);
 }

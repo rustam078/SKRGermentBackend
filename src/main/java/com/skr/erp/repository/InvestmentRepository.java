@@ -52,4 +52,15 @@ public interface InvestmentRepository
     List<Object[]> aggregateInvestmentBetween(
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
+
+    @Query("""
+            SELECT i.purchaseDate, COALESCE(SUM(i.grandTotal), 0)
+            FROM Investment i
+            WHERE i.purchaseDate >= :from AND i.purchaseDate <= :to
+            GROUP BY i.purchaseDate
+            ORDER BY i.purchaseDate
+            """)
+    List<Object[]> investmentSeriesBetween(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
 }
