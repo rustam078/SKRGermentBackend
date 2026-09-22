@@ -13,22 +13,13 @@ import java.util.UUID;
 public class VendorResponse {
 
     private UUID id;
-
     private String name;
-
     private String contactName;
-
     private String mobile;
-
     private String email;
-
     private String gstNumber;
-
     private String address;
-
     private Boolean active;
-
     private LocalDateTime createdAt;
-
     private LocalDateTime updatedAt;
 }

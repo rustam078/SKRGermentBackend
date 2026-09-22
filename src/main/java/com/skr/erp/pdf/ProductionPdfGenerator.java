@@ -19,25 +19,15 @@ import java.time.format.DateTimeFormatter;
 
 public class ProductionPdfGenerator {
 
-    public static byte[] generate(
-            ProductionDetailsResponse response) {
+    public static byte[] generate(ProductionDetailsResponse response) {
 
         try {
 
-            ByteArrayOutputStream outputStream =
-                    new ByteArrayOutputStream();
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-            Document document =
-                    new Document(
-                            PageSize.A4,
-                            30,
-                            30,
-                            30,
-                            30);
+            Document document = new Document(PageSize.A4, 30, 30, 30, 30);
 
-            PdfWriter.getInstance(
-                    document,
-                    outputStream);
+            PdfWriter.getInstance(document, outputStream);
 
             document.open();
 
@@ -57,37 +47,25 @@ public class ProductionPdfGenerator {
 
         } catch (Exception e) {
 
-            throw new RuntimeException(
-                    "Unable to generate pdf",
-                    e);
+            throw new RuntimeException("Unable to generate pdf", e);
         }
     }
 
-    private static void addHeader(
-            Document document)
-            throws Exception {
+    private static void addHeader(Document document) throws Exception {
 
         try {
 
-            InputStream is =
-                    ProductionPdfGenerator.class
-                            .getResourceAsStream(
-                                    "/static/logo.png");
+            InputStream is = ProductionPdfGenerator.class.getResourceAsStream("/static/logo.png");
 
             if (is != null) {
 
-                byte[] bytes =
-                        is.readAllBytes();
+                byte[] bytes = is.readAllBytes();
 
-                Image logo =
-                        Image.getInstance(bytes);
+                Image logo = Image.getInstance(bytes);
 
-                logo.scaleToFit(
-                        80,
-                        80);
+                logo.scaleToFit(80, 80);
 
-                logo.setAlignment(
-                        Image.ALIGN_CENTER);
+                logo.setAlignment(Image.ALIGN_CENTER);
 
                 document.add(logo);
             }
@@ -95,77 +73,47 @@ public class ProductionPdfGenerator {
         } catch (Exception ignored) {
         }
 
-        Font titleFont =
-                new Font(
-                        Font.HELVETICA,
-                        20,
-                        Font.BOLD);
+        Font titleFont = new Font(Font.HELVETICA, 20, Font.BOLD);
 
-        Paragraph title =
-                new Paragraph(
-                        "SKR GARMENT ERP",
-                        titleFont);
+        Paragraph title = new Paragraph("SKR GARMENT ERP", titleFont);
 
-        title.setAlignment(
-                Element.ALIGN_CENTER);
+        title.setAlignment(Element.ALIGN_CENTER);
 
         document.add(title);
 
-        Paragraph reportTitle =
-                new Paragraph(
-                        "Production Report",
-                        new Font(
-                                Font.HELVETICA,
-                                14,
-                                Font.BOLD));
+        Paragraph reportTitle = new Paragraph("Production Report", new Font(Font.HELVETICA, 14, Font.BOLD));
 
         reportTitle.setSpacingBefore(10);
         reportTitle.setSpacingAfter(20);
 
-        reportTitle.setAlignment(
-                Element.ALIGN_CENTER);
+        reportTitle.setAlignment(Element.ALIGN_CENTER);
 
         document.add(reportTitle);
     }
 
-    private static void addInfo(
-            Document document,
-            ProductionDetailsResponse response)
-            throws Exception {
+    private static void addInfo(Document document, ProductionDetailsResponse response) throws Exception {
 
-        PdfPTable table =
-                new PdfPTable(2);
+        PdfPTable table = new PdfPTable(2);
 
         table.setWidthPercentage(100);
 
         table.addCell("Date");
-        table.addCell(
-                response
-                        .getProductionDate()
-                        .toString());
+        table.addCell(response.getProductionDate().toString());
 
         table.addCell("Employee");
-        table.addCell(
-                response
-                        .getEmployeeName());
+        table.addCell(response.getEmployeeName());
 
         table.addCell("Remarks");
-        table.addCell(
-                response.getRemarks());
+        table.addCell(response.getRemarks());
 
         document.add(table);
 
-        document.add(
-                new Paragraph(" "));
+        document.add(new Paragraph(" "));
     }
 
-    private static void addTable(
-            Document document,
-            ProductionDetailsResponse response)
-            throws Exception {
+    private static void addTable(Document document, ProductionDetailsResponse response) throws Exception {
 
-        PdfPTable table =
-                new PdfPTable(4);
+        PdfPTable table = new PdfPTable(4);
 
         table.setWidthPercentage(100);
 
@@ -174,65 +122,38 @@ public class ProductionPdfGenerator {
         table.addCell("Rate");
         table.addCell("Amount");
 
-        for (ProductionItemResponse item :
-                response.getItems()) {
+        for (ProductionItemResponse item : response.getItems()) {
 
-            table.addCell(
-                    item.getProductName());
+            table.addCell(item.getProductName());
 
-            table.addCell(
-                    String.valueOf(
-                            item.getQuantity()));
+            table.addCell(String.valueOf(item.getQuantity()));
 
-            table.addCell(
-                    "₹" + item.getRate());
+            table.addCell("₹" + item.getRate());
 
-            table.addCell(
-                    "₹" + item.getAmount());
+            table.addCell("₹" + item.getAmount());
         }
 
         document.add(table);
     }
 
-    private static void addSummary(
-            Document document,
-            ProductionDetailsResponse response)
-            throws Exception {
+    private static void addSummary(Document document, ProductionDetailsResponse response) throws Exception {
 
-        document.add(
-                new Paragraph(" "));
+        document.add(new Paragraph(" "));
 
-        Paragraph summary =
-                new Paragraph(
-                        "Total Products : "
-                                + response.getProductCount()
-                                + "\nTotal Quantity : "
-                                + response.getTotalQuantity()
-                                + "\nTotal Amount : ₹"
-                                + response.getTotalAmount());
+        Paragraph summary = new Paragraph("Total Products : " + response.getProductCount() + "\nTotal Quantity : " + response.getTotalQuantity() + "\nTotal Amount : ₹" + response.getTotalAmount());
 
         summary.setSpacingBefore(10);
 
         document.add(summary);
     }
 
-    private static void addFooter(
-            Document document)
-            throws Exception {
+    private static void addFooter(Document document) throws Exception {
 
-        document.add(
-                new Paragraph(" "));
+        document.add(new Paragraph(" "));
 
-        Paragraph footer =
-                new Paragraph(
-                        "Generated On : "
-                                + LocalDateTime.now()
-                                .format(
-                                        DateTimeFormatter.ofPattern(
-                                                "dd-MMM-yyyy hh:mm a")));
+        Paragraph footer = new Paragraph("Generated On : " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd-MMM-yyyy hh:mm a")));
 
-        footer.setAlignment(
-                Element.ALIGN_RIGHT);
+        footer.setAlignment(Element.ALIGN_RIGHT);
 
         document.add(footer);
     }

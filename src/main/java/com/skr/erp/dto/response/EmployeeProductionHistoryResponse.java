@@ -11,12 +11,8 @@ import java.time.LocalDate;
 public class EmployeeProductionHistoryResponse {
 
     private LocalDate productionDate;
-
     private String productName;
-
     private Integer quantity;
-
     private BigDecimal rate;
-
     private BigDecimal earnings;
 }

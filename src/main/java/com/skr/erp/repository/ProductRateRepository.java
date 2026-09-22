@@ -8,21 +8,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface ProductRateRepository
-        extends JpaRepository<ProductRate, UUID> {
+public interface ProductRateRepository extends JpaRepository<ProductRate, UUID> {
 
     List<ProductRate> findByProductIdOrderByEffectiveFromDesc(UUID productId);
 
     Optional<ProductRate> findTopByProductIdOrderByEffectiveFromDesc(UUID productId);
 
-    Optional<ProductRate> findTopByProductIdAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(
-            UUID productId,
-            LocalDate date
-    );
+    Optional<ProductRate> findTopByProductIdAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(UUID productId, LocalDate date);
 
 
-    Optional<ProductRate> findByProductIdAndEffectiveFrom(
-            UUID productId,
-            LocalDate effectiveFrom
-    );
+    Optional<ProductRate> findByProductIdAndEffectiveFrom(UUID productId, LocalDate effectiveFrom);
 }

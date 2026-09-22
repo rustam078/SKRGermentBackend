@@ -11,8 +11,5 @@ import java.util.UUID;
 public interface CustomerRepository extends JpaRepository<Customer, UUID> {
 
     Optional<Customer> findByMobile(String mobile);
-    Page<Customer> findByMobileContainingIgnoreCase(
-            String mobile,
-            Pageable pageable
-    );
+    Page<Customer> findByMobileContainingIgnoreCase(String mobile, Pageable pageable);
 }

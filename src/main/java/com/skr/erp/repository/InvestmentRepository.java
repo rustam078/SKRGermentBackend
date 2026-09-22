@@ -11,27 +11,23 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface InvestmentRepository
-        extends JpaRepository<Investment, UUID>, JpaSpecificationExecutor<Investment> {
+public interface InvestmentRepository extends JpaRepository<Investment, UUID>, JpaSpecificationExecutor<Investment> {
 
     Optional<Investment> findTopByOrderByCreatedAtDesc();
 
 
     @Query("""
-    SELECT i
-    FROM Investment i
-    WHERE
-        (:vendorId IS NULL OR i.vendor.id = :vendorId)
-    AND
-        (CAST(:fromDate AS date) IS NULL OR i.purchaseDate >= CAST(:fromDate AS date))
-    AND
-        (CAST(:toDate AS date) IS NULL OR i.purchaseDate <= CAST(:toDate AS date))
-    ORDER BY i.purchaseDate DESC
-    """)
-    List<Investment> search(
-            @Param("vendorId") UUID vendorId,
-            @Param("fromDate") LocalDate fromDate,
-            @Param("toDate") LocalDate toDate);
+            SELECT i
+            FROM Investment i
+            WHERE
+                (:vendorId IS NULL OR i.vendor.id = :vendorId)
+            AND
+                (CAST(:fromDate AS date) IS NULL OR i.purchaseDate >= CAST(:fromDate AS date))
+            AND
+                (CAST(:toDate AS date) IS NULL OR i.purchaseDate <= CAST(:toDate AS date))
+            ORDER BY i.purchaseDate DESC
+            """)
+    List<Investment> search(@Param("vendorId") UUID vendorId, @Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate);
 
 
     @Query("""
@@ -41,17 +37,14 @@ public interface InvestmentRepository
             WHERE i.vendor.id = :vendorId
             ORDER BY i.purchaseDate DESC
             """)
-    List<Investment> findAllWithItemsByVendorId(
-            UUID vendorId);
+    List<Investment> findAllWithItemsByVendorId(UUID vendorId);
 
     @Query("""
             SELECT COUNT(i), COALESCE(SUM(i.grandTotal), 0)
             FROM Investment i
             WHERE i.purchaseDate >= :from AND i.purchaseDate <= :to
             """)
-    List<Object[]> aggregateInvestmentBetween(
-            @Param("from") LocalDate from,
-            @Param("to") LocalDate to);
+    List<Object[]> aggregateInvestmentBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
     @Query("""
             SELECT i.purchaseDate, COALESCE(SUM(i.grandTotal), 0)
@@ -60,7 +53,5 @@ public interface InvestmentRepository
             GROUP BY i.purchaseDate
             ORDER BY i.purchaseDate
             """)
-    List<Object[]> investmentSeriesBetween(
-            @Param("from") LocalDate from,
-            @Param("to") LocalDate to);
+    List<Object[]> investmentSeriesBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 }

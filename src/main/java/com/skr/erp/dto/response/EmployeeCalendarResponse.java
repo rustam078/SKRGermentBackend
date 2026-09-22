@@ -10,9 +10,7 @@ import java.time.LocalDate;
 @Builder
 public class EmployeeCalendarResponse {
 private LocalDate date;
-
 private Integer totalQuantity;
-
 private BigDecimal totalEarning;
 
 

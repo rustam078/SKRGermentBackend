@@ -14,12 +14,9 @@ public class CreateProductionRequest {
 
     @NotNull
     private UUID employeeId;
-
     @NotNull
     private LocalDate productionDate;
-
     private String remarks;
-
     @Valid
     @NotEmpty
     private List<ProductionItemRequest> items;

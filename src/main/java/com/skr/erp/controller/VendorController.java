@@ -22,91 +22,42 @@ public class VendorController {
     private final VendorService vendorService;
 
     @PostMapping
-    public CommonResponse<VendorResponse> create(
-            @Valid
-            @RequestBody
-            CreateVendorRequest request) {
-
-        return CommonResponse
-                .<VendorResponse>builder()
-                .success(true)
+    public CommonResponse<VendorResponse> create(@Valid @RequestBody CreateVendorRequest request) {
+        return CommonResponse.<VendorResponse>builder().success(true)
                 .message("Vendor created successfully")
-                .data(
-                        vendorService.create(request))
-                .build();
+                .data(vendorService.create(request)).build();
     }
 
     @PutMapping("/{id}")
-    public CommonResponse<VendorResponse> update(
-            @PathVariable UUID id,
-            @Valid
-            @RequestBody
-            UpdateVendorRequest request) {
-
-        return CommonResponse
-                .<VendorResponse>builder()
-                .success(true)
+    public CommonResponse<VendorResponse> update(@PathVariable UUID id, @Valid @RequestBody UpdateVendorRequest request) {
+        return CommonResponse.<VendorResponse>builder().success(true)
                 .message("Vendor updated successfully")
-                .data(
-                        vendorService.update(
-                                id,
-                                request))
-                .build();
+                .data(vendorService.update(id, request)).build();
     }
 
     @GetMapping
-    public CommonResponse<List<VendorResponse>> search(
+    public CommonResponse<List<VendorResponse>> search(@RequestParam(required = false) String name,
+                                                         @RequestParam(required = false) String mobile,
+                                                       @RequestParam(required = false) Boolean active) {
 
-            @RequestParam(required = false)
-            String name,
-
-            @RequestParam(required = false)
-            String mobile,
-
-            @RequestParam(required = false)
-            Boolean active
-    ) {
-
-        return CommonResponse
-                .<List<VendorResponse>>builder()
-                .success(true)
+        return CommonResponse.<List<VendorResponse>>builder().success(true)
                 .message("Vendors fetched successfully")
-                .data(
-                        vendorService.search(
-                                name,
-                                mobile,
-                                active))
-                .build();
+                .data(vendorService.search(name, mobile, active)).build();
     }
 
     @GetMapping("/{id}")
-    public CommonResponse<VendorDetailsResponse> getById(
-            @PathVariable UUID id) {
-
-        return CommonResponse
-                .<VendorDetailsResponse>builder()
-                .success(true)
+    public CommonResponse<VendorDetailsResponse> getById(@PathVariable UUID id) {
+        return CommonResponse.<VendorDetailsResponse>builder().success(true)
                 .message("Vendor fetched successfully")
-                .data(vendorService.getById(id))
-                .build();
+                .data(vendorService.getById(id)).build();
     }
 
     @PatchMapping("/{id}/status")
-    public CommonResponse<VendorResponse> toggleStatus(
-            @PathVariable UUID id) {
-
-        VendorResponse response =
-                vendorService.toggleStatus(id);
-
-        return CommonResponse
-                .<VendorResponse>builder()
-                .success(true)
-                .message(
-                        response.getActive()
-                                ? "Vendor activated successfully"
-                                : "Vendor deactivated successfully")
-                .data(response)
-                .build();
+    public CommonResponse<VendorResponse> toggleStatus(@PathVariable UUID id) {
+        VendorResponse response = vendorService.toggleStatus(id);
+        return CommonResponse.<VendorResponse>builder().success(true)
+                .message(response.getActive() ? "Vendor activated successfully" : "Vendor deactivated successfully")
+                .data(response).build();
     }
 
 }

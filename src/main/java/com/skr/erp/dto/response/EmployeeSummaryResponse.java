@@ -10,10 +10,7 @@ import java.math.BigDecimal;
 public class EmployeeSummaryResponse {
 
     private Integer totalProductionQty;
-
     private BigDecimal totalEarnings;
-
     private BigDecimal currentMonthEarnings;
-
     private Integer productsWorkedOn;
 }

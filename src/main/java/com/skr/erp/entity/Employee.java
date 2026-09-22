@@ -14,13 +14,10 @@ import java.time.LocalDate;
 @Setter
 public class Employee extends BaseEntity {
 
-    @Column(name = "employee_code",
-            nullable = false,
-            unique = true)
+    @Column(name = "employee_code", nullable = false, unique = true)
     private String employeeCode;
 
-    @Column(name = "full_name",
-            nullable = false)
+    @Column(name = "full_name", nullable = false)
     private String fullName;
 
     @Column(name = "mobile_number")
@@ -31,8 +28,7 @@ public class Employee extends BaseEntity {
 
     private String address;
 
-    @Column(name = "joining_date",
-            nullable = false)
+    @Column(name = "joining_date", nullable = false)
     private LocalDate joiningDate;
 
     @Column(nullable = false)

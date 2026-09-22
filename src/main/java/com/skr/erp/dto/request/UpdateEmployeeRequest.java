@@ -11,16 +11,11 @@ public class UpdateEmployeeRequest {
 
     @NotBlank
     private String fullName;
-
     private String mobileNumber;
-
     private String address;
-
     private String email;
-
     @NotNull
     private LocalDate joiningDate;
-
     @NotNull
     private Boolean active;
 }

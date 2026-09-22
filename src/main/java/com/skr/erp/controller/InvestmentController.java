@@ -29,10 +29,7 @@ public class InvestmentController {
     private final InvestmentService investmentService;
 
     @PostMapping
-    public CommonResponse<InvestmentResponse> create(
-            @Valid
-            @RequestBody
-            CreateInvestmentRequest request) {
+    public CommonResponse<InvestmentResponse> create(@Valid @RequestBody CreateInvestmentRequest request) {
 
         return CommonResponse
                 .<InvestmentResponse>builder()
@@ -43,16 +40,12 @@ public class InvestmentController {
     }
 
     @GetMapping
-    public CommonResponse<List<InvestmentResponse>> search(
-
-            @RequestParam(required = false)
+    public CommonResponse<List<InvestmentResponse>> search(@RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate fromDate,
-
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate toDate,
-
             @RequestParam(required = false)
             UUID vendorId,
             @RequestParam(required = false)
@@ -64,79 +57,45 @@ public class InvestmentController {
                 .<List<InvestmentResponse>>builder()
                 .success(true)
                 .message("Investments fetched successfully")
-                .data(
-                        investmentService.search(
-                                vendorId,
-                                fromDate,
-                                toDate,
-                                type,
-                                search
-                                ))
+                .data(investmentService.search(vendorId, fromDate, toDate, type, search))
                 .build();
     }
 
     @GetMapping("/{id}")
-    public CommonResponse<InvestmentDetailsResponse> getById(
-            @PathVariable UUID id) {
-
-        return CommonResponse
-                .<InvestmentDetailsResponse>builder()
-                .success(true)
+    public CommonResponse<InvestmentDetailsResponse> getById(@PathVariable UUID id) {
+        return CommonResponse.<InvestmentDetailsResponse>builder().success(true)
                 .message("Investment fetched successfully")
-                .data(
-                        investmentService.getById(id))
-                .build();
+                .data(investmentService.getById(id)).build();
     }
 
     @DeleteMapping("/{id}")
-    public CommonResponse<Void> delete(
-            @PathVariable UUID id) {
-
+    public CommonResponse<Void> delete(@PathVariable UUID id) {
         investmentService.delete(id);
-
-        return CommonResponse
-                .<Void>builder()
-                .success(true)
-                .message("Investment deleted successfully")
-                .build();
+        return CommonResponse.<Void>builder().success(true)
+                .message("Investment deleted successfully").build();
     }
 
     // ── Payments ──────────────────────────────────
     @PostMapping("/{id}/payments")
-    public CommonResponse<InvestmentDetailsResponse> addPayment(
-            @PathVariable UUID id,
-            @Valid @RequestBody AddPaymentRequest request) {
-
-        return CommonResponse
-                .<InvestmentDetailsResponse>builder()
-                .success(true)
+    public CommonResponse<InvestmentDetailsResponse> addPayment(@PathVariable UUID id, @Valid @RequestBody AddPaymentRequest request) {
+        return CommonResponse.<InvestmentDetailsResponse>builder().success(true)
                 .message("Payment recorded successfully")
-                .data(investmentService.addPayment(id, request))
-                .build();
+                .data(investmentService.addPayment(id, request)).build();
     }
 
     @GetMapping("/{id}/payments")
-    public CommonResponse<List<InvestmentPaymentResponse>> getPayments(
-            @PathVariable UUID id) {
-
-        return CommonResponse
-                .<List<InvestmentPaymentResponse>>builder()
-                .success(true)
+    public CommonResponse<List<InvestmentPaymentResponse>> getPayments(@PathVariable UUID id) {
+        return CommonResponse.<List<InvestmentPaymentResponse>>builder().success(true)
                 .message("Payments fetched successfully")
-                .data(investmentService.getPayments(id))
-                .build();
+                .data(investmentService.getPayments(id)).build();
     }
 
     // ── Invoice PDF ───────────────────────────────
     @GetMapping("/{id}/invoice/pdf")
-    public ResponseEntity<byte[]> getInvoicePdf(
-            @PathVariable UUID id) {
-
+    public ResponseEntity<byte[]> getInvoicePdf(@PathVariable UUID id) {
         byte[] pdf = investmentService.exportInvoicePdf(id);
-
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=purchase-invoice-" + id + ".pdf")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=purchase-invoice-" + id + ".pdf")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
     }

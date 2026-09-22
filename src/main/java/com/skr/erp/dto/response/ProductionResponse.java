@@ -14,20 +14,12 @@ import java.util.UUID;
 public class ProductionResponse {
 
     private UUID id;
-
     private UUID employeeId;
-
     private String employeeName;
-
     private LocalDate productionDate;
-
     private String remarks;
-
     private Integer totalQuantity;
-
     private BigDecimal totalAmount;
-
     private Integer productCount;
-
     private List<ProductionItemResponse> items;
 }

@@ -15,10 +15,7 @@ import java.math.BigDecimal;
 public class InvestmentItem extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "investment_id",
-            nullable = false
-    )
+    @JoinColumn(name = "investment_id", nullable = false)
     private Investment investment;
 
     @Enumerated(EnumType.STRING)

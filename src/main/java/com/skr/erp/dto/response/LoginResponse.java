@@ -10,10 +10,7 @@ import java.util.UUID;
 public class LoginResponse {
 
     private UUID userId;
-
     private String username;
-
     private String fullName;
-
     private String role;
 }

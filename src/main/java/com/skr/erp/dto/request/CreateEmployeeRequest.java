@@ -12,16 +12,11 @@ public class CreateEmployeeRequest {
 
     @NotBlank
     private String fullName;
-
     private String mobileNumber;
-
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
     private String email;
-
-
     private String address;
-
     @NotNull
     private LocalDate joiningDate;
 }

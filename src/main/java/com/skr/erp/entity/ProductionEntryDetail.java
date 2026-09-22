@@ -13,17 +13,11 @@ import java.math.BigDecimal;
 public class ProductionEntryDetail extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "production_entry_id",
-            nullable = false
-    )
+    @JoinColumn(name = "production_entry_id", nullable = false)
     private ProductionEntry productionEntry;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "product_id",
-            nullable = false
-    )
+    @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
     @Column(nullable = false)

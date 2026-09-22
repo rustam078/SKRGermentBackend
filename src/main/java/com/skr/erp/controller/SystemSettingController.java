@@ -19,23 +19,16 @@ public class SystemSettingController {
 
     @GetMapping
     public ResponseEntity<List<SystemSettingResponse>> getAll() {
-
         return ResponseEntity.ok(service.getAll());
     }
 
     @GetMapping("/{key}")
-    public ResponseEntity<SystemSettingResponse> get(
-            @PathVariable String key) {
-
+    public ResponseEntity<SystemSettingResponse> get(@PathVariable String key) {
         return ResponseEntity.ok(service.get(key));
     }
 
     @PutMapping("/{key}")
-    public ResponseEntity<SystemSettingResponse> update(
-            @PathVariable String key,
-            @RequestBody SystemSettingRequest request) {
-
-        return ResponseEntity.ok(
-                service.update(key, request.getThreshold()));
+    public ResponseEntity<SystemSettingResponse> update(@PathVariable String key, @RequestBody SystemSettingRequest request) {
+        return ResponseEntity.ok(service.update(key, request.getThreshold()));
     }
 }

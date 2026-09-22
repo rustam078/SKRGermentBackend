@@ -10,9 +10,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-public interface ProductionEntryDetailRepository
-        extends JpaRepository<ProductionEntryDetail, UUID> {
+public interface ProductionEntryDetailRepository extends JpaRepository<ProductionEntryDetail, UUID> {
     boolean existsByProductId(UUID productId);
+
     boolean existsByPieceCodeId(UUID pieceCodeId);
 
     @Query("""
@@ -23,9 +23,7 @@ public interface ProductionEntryDetailRepository
             WHERE d.productionEntry.productionDate >= :from
               AND d.productionEntry.productionDate <= :to
             """)
-    List<Object[]> aggregateProductionBetween(
-            @Param("from") LocalDate from,
-            @Param("to") LocalDate to);
+    List<Object[]> aggregateProductionBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
     @Query("""
             SELECT e.fullName,
@@ -38,10 +36,7 @@ public interface ProductionEntryDetailRepository
             GROUP BY e.id, e.fullName
             ORDER BY SUM(d.quantity) DESC
             """)
-    List<Object[]> topEmployeesBetween(
-            @Param("from") LocalDate from,
-            @Param("to") LocalDate to,
-            Pageable pageable);
+    List<Object[]> topEmployeesBetween(@Param("from") LocalDate from, @Param("to") LocalDate to, Pageable pageable);
 
     @Query("""
             SELECT pe.productionDate, COALESCE(SUM(d.amountSnapshot), 0)
@@ -51,7 +46,5 @@ public interface ProductionEntryDetailRepository
             GROUP BY pe.productionDate
             ORDER BY pe.productionDate
             """)
-    List<Object[]> wagesSeriesBetween(
-            @Param("from") LocalDate from,
-            @Param("to") LocalDate to);
+    List<Object[]> wagesSeriesBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 }

@@ -15,13 +15,9 @@ public class CreateProductMaterialCostRequest {
     @NotNull
     @DecimalMin("0.00")
     private BigDecimal cost;
-
-    // Selling price for the same effective date (optional; used for profit %).
     @DecimalMin("0.00")
     private BigDecimal salePrice;
-
     @NotNull
     private LocalDate effectiveFrom;
-
     private String remarks;
 }

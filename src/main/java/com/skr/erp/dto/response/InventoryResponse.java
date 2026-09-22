@@ -13,13 +13,9 @@ public class InventoryResponse {
     private UUID productId;
     private String productName;
     private ProductSource source;
-
     private BigDecimal currentStock;
     private BigDecimal stockValue;
     private BigDecimal averageCost;
-
-    // Current effective selling price (from product_sale_price), if one is set.
-    // Null when no sale price has been configured for the product.
     private BigDecimal sellingPrice;
 
 }

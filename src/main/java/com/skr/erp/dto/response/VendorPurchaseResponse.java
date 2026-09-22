@@ -14,16 +14,11 @@ import java.util.UUID;
 public class VendorPurchaseResponse {
 
     private String invoiceNumber;
-
     private InvestmentType investmentType;
-
     private LocalDate purchaseDate;
-
     private BigDecimal grandTotal;
-
     private BigDecimal amountPaid;
     private BigDecimal amountDue;
     private String paymentStatus; // PENDING | PARTIALLY_PAID | PAID
-
     private List<VendorPurchaseItemResponse> items;
 }

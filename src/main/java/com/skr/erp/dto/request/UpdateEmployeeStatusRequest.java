@@ -5,7 +5,6 @@ import lombok.Data;
 
 @Data
 public class UpdateEmployeeStatusRequest {
-
     @NotNull
     private Boolean active;
 }

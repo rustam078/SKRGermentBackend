@@ -13,18 +13,11 @@ import java.util.UUID;
 public class InvestmentItemResponse {
 
     private UUID id;
-
     private InvestmentItemType itemType;
-
     private UUID productId;
-
     private String itemName;
-
     private BigDecimal quantity;
-
     private UnitType unit;
-
     private BigDecimal rate;
-
     private BigDecimal totalAmount;
 }

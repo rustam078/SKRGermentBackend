@@ -11,13 +11,9 @@ import java.util.List;
 public class EmployeeDetailsResponse {
 
     private EmployeeResponse employee;
-
     private EmployeeSummaryResponse summary;
-
     private List<EmployeeProductSummaryResponse> productSummary;
-
     private List<EmployeeProductionHistoryResponse> productionHistory;
-
     private List<EmployeeCurrentMonthProductResponse> currentMonthProductSummary;
 
 }

@@ -15,7 +15,6 @@ import java.util.List;
 public class ReconciliationRequiredException extends RuntimeException {
 
     private final transient List<ReconcileBatchInfo> batches;
-
     public ReconciliationRequiredException(List<ReconcileBatchInfo> batches) {
         super("Stock reconciliation required for scanned QR units.");
         this.batches = batches;

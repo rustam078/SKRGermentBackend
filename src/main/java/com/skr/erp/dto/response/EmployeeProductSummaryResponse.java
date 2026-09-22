@@ -11,10 +11,7 @@ import java.util.UUID;
 public class EmployeeProductSummaryResponse {
 
     private UUID productId;
-
     private String productName;
-
     private Integer quantity;
-
     private BigDecimal earnings;
 }

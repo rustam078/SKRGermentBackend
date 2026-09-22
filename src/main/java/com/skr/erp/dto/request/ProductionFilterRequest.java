@@ -9,8 +9,6 @@ import java.util.UUID;
 public class ProductionFilterRequest {
 
     private LocalDate fromDate;
-
     private LocalDate toDate;
-
     private UUID employeeId;
 }

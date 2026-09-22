@@ -46,9 +46,7 @@ public class GlobalExceptionHandler {
     public ErrorResponse handleValidation(
             MethodArgumentNotValidException ex) {
 
-        String message = ex.getBindingResult()
-                .getFieldError()
-                .getDefaultMessage();
+        String message = ex.getBindingResult().getFieldError().getDefaultMessage();
 
         return ErrorResponse.builder()
                 .success(false)

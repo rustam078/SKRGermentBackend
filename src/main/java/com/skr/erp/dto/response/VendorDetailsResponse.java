@@ -21,12 +21,8 @@ public class VendorDetailsResponse {
     private String email;
     private String address;
     private Boolean active;
-
     private Integer totalInvoices;
-
     private BigDecimal totalPurchaseAmount;
-
     private LocalDate lastPurchaseDate;
-
     private List<VendorPurchaseResponse> purchases;
 }

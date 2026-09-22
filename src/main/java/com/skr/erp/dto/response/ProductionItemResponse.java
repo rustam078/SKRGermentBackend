@@ -16,16 +16,11 @@ import java.util.UUID;
 public class ProductionItemResponse {
 
     private UUID productId;
-
     private String productName;
-
     private Integer quantity;
-
     private BigDecimal rate;
-
     private BigDecimal amount;
     private UUID pieceCodeId;
-
     private String pieceCode;
 
 }

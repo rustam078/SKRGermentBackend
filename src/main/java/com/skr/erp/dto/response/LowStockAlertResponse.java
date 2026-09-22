@@ -16,12 +16,8 @@ import java.util.UUID;
 public class LowStockAlertResponse {
 
     private UUID productId;
-
     private String productName;
-
     private ProductSource source;
-
     private BigDecimal currentStock;
-
     private BigDecimal threshold;
 }

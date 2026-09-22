@@ -20,68 +20,30 @@ public class PieceCodeController {
     private final ProductService productService;
 
     @PostMapping("/products/{productId}/piece-codes")
-    public CommonResponse<PieceCodeResponse>
-    create(
-            @PathVariable UUID productId,
-            @Valid @RequestBody
-            CreatePieceCodeRequest request) {
-
-        return CommonResponse
-                .<PieceCodeResponse>builder()
-                .success(true)
-                .message(
-                        "Piece code created successfully")
-                .data(
-                        productService.createPieceCode(
-                                productId,
-                                request))
-                .build();
+    public CommonResponse<PieceCodeResponse> create(@PathVariable UUID productId, @Valid @RequestBody CreatePieceCodeRequest request) {
+        return CommonResponse.<PieceCodeResponse>builder().success(true)
+                .message("Piece code created successfully")
+                .data(productService.createPieceCode(productId, request)).build();
     }
 
     @GetMapping("/products/{productId}/piece-codes")
-    public CommonResponse<List<PieceCodeResponse>>
-    getAll(
-            @PathVariable UUID productId) {
-
-        return CommonResponse
-                .<List<PieceCodeResponse>>builder()
-                .success(true)
-                .message(
-                        "Piece codes fetched successfully")
-                .data(
-                        productService.getPieceCodes(
-                                productId))
-                .build();
+    public CommonResponse<List<PieceCodeResponse>> getAll(@PathVariable UUID productId) {
+        return CommonResponse.<List<PieceCodeResponse>>builder().success(true)
+                .message("Piece codes fetched successfully")
+                .data(productService.getPieceCodes(productId)).build();
     }
 
     @PatchMapping("/piece-codes/{id}/status")
-    public CommonResponse<PieceCodeResponse>
-    toggleStatus(
-            @PathVariable UUID id) {
-
-        return CommonResponse
-                .<PieceCodeResponse>builder()
-                .success(true)
-                .message(
-                        "Piece code status updated")
-                .data(
-                        productService
-                                .togglePieceCodeStatus(id))
-                .build();
+    public CommonResponse<PieceCodeResponse> toggleStatus(@PathVariable UUID id) {
+        return CommonResponse.<PieceCodeResponse>builder().success(true)
+                .message("Piece code status updated")
+                .data(productService.togglePieceCodeStatus(id)).build();
     }
 
     @DeleteMapping("/piece-codes/{id}")
-    public CommonResponse<Void>
-    delete(
-            @PathVariable UUID id) {
-
+    public CommonResponse<Void> delete(@PathVariable UUID id) {
         productService.deletePieceCode(id);
-
-        return CommonResponse
-                .<Void>builder()
-                .success(true)
-                .message(
-                        "Piece code deleted successfully")
-                .build();
+        return CommonResponse.<Void>builder().success(true)
+                .message("Piece code deleted successfully").build();
     }
 }

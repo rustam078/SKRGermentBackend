@@ -12,7 +12,6 @@ public class CreatePieceCodeRequest {
 
     @NotBlank
     private String code;
-
     @NotNull
     @DecimalMin("0.01")
     private BigDecimal rate;

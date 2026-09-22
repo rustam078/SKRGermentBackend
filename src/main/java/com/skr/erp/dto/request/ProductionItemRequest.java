@@ -11,6 +11,5 @@ public class ProductionItemRequest {
 
     private UUID productId;
     private UUID pieceCodeId;
-
     private Integer quantity;
 }

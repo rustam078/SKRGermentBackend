@@ -14,16 +14,8 @@ import java.util.UUID;
 public class CustomerResponse {
 
     private UUID id;
-
     private String name;
-
     private String mobile;
-
     private String email;
-
-    /**
-     * true -> existing customer
-     * false -> customer not found
-     */
     private boolean existing;
 }

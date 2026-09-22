@@ -31,32 +31,25 @@ public class QrUnitServiceImpl implements QrUnitService {
 
     @Override
     public GenerateUnitsResponse generateUnits(String batchNumber, GenerateUnitsRequest request) {
-
         InventoryBatch batch = inventoryBatchRepository.findByBatchNumber(batchNumber)
-                .orElseThrow(() -> new BusinessException("Batch " + batchNumber + " not found."));
+                               .orElseThrow(() -> new BusinessException("Batch " + batchNumber + " not found."));
 
         Product product = batch.getProduct();
-
         BigDecimal salePrice = currentSalePrice(product.getId());
         if (salePrice == null) {
-            throw new BusinessException(
-                    "Set a sale price for " + product.getName() + " before generating QR labels.");
+            throw new BusinessException("Set a sale price for " + product.getName() + " before generating QR labels.");
         }
 
         int received = batch.getQuantityReceived().intValue();
         long existing = productUnitRepository.countByBatchNumber(batchNumber);
 
-        int toGenerate = request != null && request.getCount() != null
-                ? request.getCount()
-                : (int) (received - existing);
+        int toGenerate = request != null && request.getCount() != null ? request.getCount() : (int) (received - existing);
 
         if (toGenerate <= 0) {
             throw new BusinessException("All pieces of this batch are already labelled.");
         }
         if (existing + toGenerate > received) {
-            throw new BusinessException(
-                    "Cannot label more than " + received + " pieces in this batch ("
-                            + existing + " already labelled).");
+            throw new BusinessException("Cannot label more than " + received + " pieces in this batch (" + existing + " already labelled).");
         }
 
         int startIndex = productUnitRepository.maxSerialIndex(batchNumber) + 1;
@@ -74,22 +67,17 @@ public class QrUnitServiceImpl implements QrUnitService {
         }
         productUnitRepository.saveAll(created);
 
-        return GenerateUnitsResponse.builder()
-                .batchNumber(batchNumber)
-                .productName(product.getName())
-                .generatedCount(created.size())
+        return GenerateUnitsResponse.builder().batchNumber(batchNumber)
+                .productName(product.getName()).generatedCount(created.size())
                 .totalUnits(productUnitRepository.countByBatchNumber(batchNumber))
-                .units(created.stream().map(this::toResponse).toList())
-                .build();
+                .units(created.stream().map(this::toResponse).toList()).build();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ProductUnitResponse> listUnits(String batchNumber) {
         return productUnitRepository.findByBatchNumberOrderBySerialAsc(batchNumber)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+                .stream().map(this::toResponse).toList();
     }
 
     @Override
@@ -101,16 +89,14 @@ public class QrUnitServiceImpl implements QrUnitService {
 
         // Include the batch cost so the sale form can show profit for a scanned line.
         BigDecimal unitCost = inventoryBatchRepository.findByBatchNumber(unit.getBatchNumber())
-                .map(InventoryBatch::getUnitCost)
-                .orElse(null);
+                .map(InventoryBatch::getUnitCost).orElse(null);
 
         return toResponse(unit, unitCost);
     }
 
     @Override
     public ProductUnitResponse voidUnit(String serial) {
-        ProductUnit unit = productUnitRepository.findBySerial(serial)
-                .orElseThrow(() -> new BusinessException("Unit " + serial + " not found."));
+        ProductUnit unit = productUnitRepository.findBySerial(serial).orElseThrow(() -> new BusinessException("Unit " + serial + " not found."));
         if (unit.getStatus() == ProductUnitStatus.SOLD) {
             throw new BusinessException("Sold units cannot be voided.");
         }
@@ -126,15 +112,12 @@ public class QrUnitServiceImpl implements QrUnitService {
             return;
         }
         for (String serial : serials) {
-            ProductUnit unit = productUnitRepository.findBySerial(serial)
-                    .orElseThrow(() -> new BusinessException("Unknown unit: " + serial));
+            ProductUnit unit = productUnitRepository.findBySerial(serial).orElseThrow(() -> new BusinessException("Unknown unit: " + serial));
             if (!unit.getBatchNumber().equals(batchNumber)) {
-                throw new BusinessException(
-                        "Unit " + serial + " does not belong to batch " + batchNumber + ".");
+                throw new BusinessException("Unit " + serial + " does not belong to batch " + batchNumber + ".");
             }
             if (unit.getStatus() != ProductUnitStatus.AVAILABLE) {
-                throw new BusinessException(
-                        "Unit " + serial + " is already " + unit.getStatus() + ".");
+                throw new BusinessException("Unit " + serial + " is already " + unit.getStatus() + ".");
             }
         }
     }
@@ -146,16 +129,13 @@ public class QrUnitServiceImpl implements QrUnitService {
         }
         LocalDateTime now = LocalDateTime.now();
         for (String serial : serials) {
-            ProductUnit unit = productUnitRepository.findBySerial(serial)
-                    .orElseThrow(() -> new BusinessException("Unknown unit: " + serial));
+            ProductUnit unit = productUnitRepository.findBySerial(serial).orElseThrow(() -> new BusinessException("Unknown unit: " + serial));
 
             if (!unit.getBatchNumber().equals(batchNumber)) {
-                throw new BusinessException(
-                        "Unit " + serial + " does not belong to batch " + batchNumber + ".");
+                throw new BusinessException("Unit " + serial + " does not belong to batch " + batchNumber + ".");
             }
             if (unit.getStatus() != ProductUnitStatus.AVAILABLE) {
-                throw new BusinessException(
-                        "Unit " + serial + " is already " + unit.getStatus() + ".");
+                throw new BusinessException("Unit " + serial + " is already " + unit.getStatus() + ".");
             }
 
             unit.setStatus(ProductUnitStatus.SOLD);
@@ -170,8 +150,7 @@ public class QrUnitServiceImpl implements QrUnitService {
         if (count <= 0) {
             return 0;
         }
-        List<ProductUnit> available = productUnitRepository
-                .findByBatchNumberAndStatusOrderBySerialDesc(batchNumber, ProductUnitStatus.AVAILABLE);
+        List<ProductUnit> available = productUnitRepository.findByBatchNumberAndStatusOrderBySerialDesc(batchNumber, ProductUnitStatus.AVAILABLE);
         if (available.isEmpty()) {
             return 0;
         }
@@ -182,11 +161,7 @@ public class QrUnitServiceImpl implements QrUnitService {
     }
 
     private BigDecimal currentSalePrice(UUID productId) {
-        return productMaterialCostRepository
-                .findTopByProductIdAndSalePriceNotNullAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(
-                        productId, LocalDate.now())
-                .map(mc -> mc.getSalePrice())
-                .orElse(null);
+        return productMaterialCostRepository.findTopByProductIdAndSalePriceNotNullAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(productId, LocalDate.now()).map(mc -> mc.getSalePrice()).orElse(null);
     }
 
     private ProductUnitResponse toResponse(ProductUnit unit) {
@@ -201,8 +176,7 @@ public class QrUnitServiceImpl implements QrUnitService {
                 .productId(unit.getProduct().getId())
                 .productName(unit.getProduct().getName())
                 .printedPrice(unit.getPrintedPrice())
-                .unitCost(unitCost)
-                .status(unit.getStatus().name())
+                .unitCost(unitCost).status(unit.getStatus().name())
                 .qrPayload(QrPayload.build(unit.getSerial(), unit.getProduct().getName(), unit.getPrintedPrice()))
                 .build();
     }

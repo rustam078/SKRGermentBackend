@@ -15,29 +15,17 @@ import java.util.UUID;
 public class InvestmentDetailsResponse {
 
     private UUID id;
-
     private String referenceNumber;
-
     private String invoiceNumber;
-
     private UUID vendorId;
-
     private String vendorName;
-
     private InvestmentType investmentType;
-
     private LocalDate purchaseDate;
-
     private String remarks;
-
     private BigDecimal subTotal;
-
     private BigDecimal gstAmount;
-
     private BigDecimal discountAmount;
-
     private BigDecimal otherCharge;
-
     private BigDecimal grandTotal;
 
     // Payment tracking
@@ -45,6 +33,5 @@ public class InvestmentDetailsResponse {
     private BigDecimal amountDue;
     private PaymentStatus paymentStatus;
     private List<InvestmentPaymentResponse> payments;
-
     private List<InvestmentItemResponse> items;
 }

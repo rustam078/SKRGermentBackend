@@ -31,40 +31,19 @@ public class SalesController {
     private final SalesService salesService;
 
     @GetMapping
-    public ResponseEntity<PageResponse<SalesListResponse>> getSales(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate fromDate,
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate toDate,
-            @RequestParam(required = false) PaymentMode paymentMode,
-            @RequestParam(required = false) PaymentStatus paymentStatus) {
-
+    public ResponseEntity<PageResponse<SalesListResponse>> getSales(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size, @RequestParam(required = false) String search,
+                                                                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+                                                                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+                                                                    @RequestParam(required = false) PaymentMode paymentMode, @RequestParam(required = false) PaymentStatus paymentStatus) {
         Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(
-                salesService.getSales(
-                        search, fromDate, toDate, paymentMode, paymentStatus, pageable)
-        );
+        return ResponseEntity.ok(salesService.getSales(search, fromDate, toDate, paymentMode, paymentStatus, pageable));
     }
 
     @GetMapping("/summary")
-    public ResponseEntity<SalesSummaryResponse> getSalesSummary(
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate fromDate,
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate toDate,
-            @RequestParam(required = false) PaymentMode paymentMode,
-            @RequestParam(required = false) PaymentStatus paymentStatus) {
-
-        return ResponseEntity.ok(
-                salesService.getSalesSummary(search, fromDate, toDate, paymentMode, paymentStatus));
+    public ResponseEntity<SalesSummaryResponse> getSalesSummary(@RequestParam(required = false) String search, @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+                                                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate, @RequestParam(required = false) PaymentMode paymentMode,
+                                                                @RequestParam(required = false) PaymentStatus paymentStatus) {
+        return ResponseEntity.ok(salesService.getSalesSummary(search, fromDate, toDate, paymentMode, paymentStatus));
     }
 
     @GetMapping("/dashboard")
@@ -83,35 +62,25 @@ public class SalesController {
     }
 
     @PostMapping
-    public ResponseEntity<CreateSaleOrderResponse> createSale(
-            @Valid @RequestBody CreateSaleOrderRequest request) throws BadRequestException {
-
+    public ResponseEntity<CreateSaleOrderResponse> createSale(@Valid @RequestBody CreateSaleOrderRequest request) throws BadRequestException {
         CreateSaleOrderResponse response = salesService.createSale(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/{saleId}")
-    public ResponseEntity<SalesDetailsResponse> getSaleDetails(
-            @PathVariable UUID saleId) {
+    public ResponseEntity<SalesDetailsResponse> getSaleDetails(@PathVariable UUID saleId) {
         return ResponseEntity.ok(salesService.getSaleDetails(saleId));
     }
 
     @GetMapping("/{saleId}/invoice")
-    public ResponseEntity<InvoiceResponse> getInvoice(
-            @PathVariable UUID saleId) {
+    public ResponseEntity<InvoiceResponse> getInvoice(@PathVariable UUID saleId) {
         return ResponseEntity.ok(salesService.getInvoice(saleId));
     }
 
     @GetMapping("/{saleId}/invoice/pdf")
-    public ResponseEntity<byte[]> getInvoicePdf(
-            @PathVariable UUID saleId) {
-
+    public ResponseEntity<byte[]> getInvoicePdf(@PathVariable UUID saleId) {
         byte[] pdf = salesService.exportInvoicePdf(saleId);
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=invoice-" + saleId + ".pdf")
-                .contentType(MediaType.APPLICATION_PDF)
-                .body(pdf);
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=invoice-" + saleId + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF).body(pdf);
     }
 }

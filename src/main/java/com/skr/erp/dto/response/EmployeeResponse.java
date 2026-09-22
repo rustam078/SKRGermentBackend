@@ -10,23 +10,14 @@ import java.util.UUID;
 @Builder
 public class EmployeeResponse {
     private UUID id;
-
     private String employeeCode;
-
     private String fullName;
-
     private String mobileNumber;
-
     private String email;
-
     private String address;
-
     private LocalDate joiningDate;
-
     private Boolean active;
-
     private BigDecimal currentMonthEarning;
-
     private BigDecimal totalEarning;
 
 }

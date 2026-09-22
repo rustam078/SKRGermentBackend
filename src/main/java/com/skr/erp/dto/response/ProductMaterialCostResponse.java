@@ -13,18 +13,11 @@ import java.util.UUID;
 public class ProductMaterialCostResponse {
 
     private UUID id;
-
     private UUID productId;
-
     private String productName;
-
     private BigDecimal cost;
-
     private BigDecimal salePrice;
-
     private LocalDate effectiveFrom;
-
     private String remarks;
-
     private LocalDateTime createdAt;
 }

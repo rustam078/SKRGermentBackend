@@ -15,12 +15,7 @@ public class SalesSpecification {
     private SalesSpecification() {
     }
 
-    public static Specification<SalesOrder> filter(
-            String search,
-            LocalDate fromDate,
-            LocalDate toDate,
-            PaymentMode paymentMode,
-            PaymentStatus paymentStatus) {
+    public static Specification<SalesOrder> filter(String search, LocalDate fromDate, LocalDate toDate, PaymentMode paymentMode, PaymentStatus paymentStatus) {
 
         return (root, query, cb) -> {
 
@@ -28,25 +23,15 @@ public class SalesSpecification {
 
             if (search != null && !search.isBlank()) {
                 String pattern = "%" + search.toLowerCase() + "%";
-                predicates.add(cb.or(
-                        cb.like(cb.lower(root.get("invoiceNo")), pattern),
-                        cb.like(cb.lower(root.get("customerName")), pattern),
-                        cb.like(cb.lower(root.get("customerMobile")), pattern)
-                ));
+                predicates.add(cb.or(cb.like(cb.lower(root.get("invoiceNo")), pattern), cb.like(cb.lower(root.get("customerName")), pattern), cb.like(cb.lower(root.get("customerMobile")), pattern)));
             }
 
             if (fromDate != null) {
-                predicates.add(cb.greaterThanOrEqualTo(
-                        root.get("createdAt"),
-                        fromDate.atStartOfDay()
-                ));
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), fromDate.atStartOfDay()));
             }
 
             if (toDate != null) {
-                predicates.add(cb.lessThan(
-                        root.get("createdAt"),
-                        toDate.plusDays(1).atStartOfDay()
-                ));
+                predicates.add(cb.lessThan(root.get("createdAt"), toDate.plusDays(1).atStartOfDay()));
             }
 
             if (paymentMode != null) {

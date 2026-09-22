@@ -28,11 +28,8 @@ public class AuthController {
     }
 
     @PostMapping("/change-password")
-    public CommonResponse<Void> changePassword(
-            @Valid @RequestBody ChangePasswordRequest request) {
-
+    public CommonResponse<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
         authService.changePassword(request);
-
         return CommonResponse.<Void>builder()
                 .success(true)
                 .message("Password changed successfully")

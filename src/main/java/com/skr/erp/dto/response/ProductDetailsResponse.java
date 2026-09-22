@@ -13,23 +13,15 @@ import java.util.UUID;
 public class ProductDetailsResponse {
 
     private UUID id;
-
     private String name;
-
     private String iconName;
-
     private String description;
     private ProductSource source;
     private Boolean active;
-
     private Integer totalPieceCodes;
-
     private Integer activePieceCodes;
-
     private Integer inactivePieceCodes;
     private LocalDateTime createdAt;
-
     private LocalDateTime updatedAt;
-
     private List<ProductPieceCodeResponse> pieceCodes;
 }

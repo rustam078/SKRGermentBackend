@@ -20,6 +20,5 @@ public class ProductInventoryDetailResponse {
     private BigDecimal quantityAvailable;
     private BigDecimal totalValue;
     private BigDecimal averageCost;
-
     private List<InventoryBatchResponse> batches;
 }

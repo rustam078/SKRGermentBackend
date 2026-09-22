@@ -15,87 +15,72 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID>,
-        JpaSpecificationExecutor<SalesOrder> {
+public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID>, JpaSpecificationExecutor<SalesOrder> {
 
     boolean existsByInvoiceNo(String invoiceNumber);
 
-    Page<SalesOrder> findByCustomerMobileOrderByCreatedAtDesc(
-            String customerMobile,
-            Pageable pageable);
+    Page<SalesOrder> findByCustomerMobileOrderByCreatedAtDesc(String customerMobile, Pageable pageable);
 
     @Query("""
-    SELECT
-        COUNT(s) AS totalSales,
-        COALESCE(SUM(s.grandTotal), 0) AS totalRevenue
-    FROM SalesOrder s
-    WHERE s.createdAt >= :start
-      AND s.createdAt < :end
-""")
-    SalesSummaryProjection countAndRevenueBetween(
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end
-    );@Query("""
-    SELECT
-        COUNT(s) AS totalSales,
-        COALESCE(SUM(s.grandTotal), 0) AS totalRevenue
-    FROM SalesOrder s
-""")
+                SELECT
+                    COUNT(s) AS totalSales,
+                    COALESCE(SUM(s.grandTotal), 0) AS totalRevenue
+                FROM SalesOrder s
+                WHERE s.createdAt >= :start
+                  AND s.createdAt < :end
+            """)
+    SalesSummaryProjection countAndRevenueBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    @Query("""
+                SELECT
+                    COUNT(s) AS totalSales,
+                    COALESCE(SUM(s.grandTotal), 0) AS totalRevenue
+                FROM SalesOrder s
+            """)
     SalesSummaryProjection countAndTotalRevenue();
 
     // ── Dashboard aggregations ───────────────────────────
     @Query("""
-    SELECT COUNT(s), COALESCE(SUM(s.grandTotal), 0), COALESCE(SUM(s.discount), 0)
-    FROM SalesOrder s
-    WHERE s.createdAt >= :start AND s.createdAt < :end
-""")
-    List<Object[]> aggregateSalesBetween(
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end);
+                SELECT COUNT(s), COALESCE(SUM(s.grandTotal), 0), COALESCE(SUM(s.discount), 0)
+                FROM SalesOrder s
+                WHERE s.createdAt >= :start AND s.createdAt < :end
+            """)
+    List<Object[]> aggregateSalesBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     @Query("""
-    SELECT CAST(s.createdAt AS date), COALESCE(SUM(s.grandTotal), 0), COUNT(s)
-    FROM SalesOrder s
-    WHERE s.createdAt >= :start AND s.createdAt < :end
-    GROUP BY CAST(s.createdAt AS date)
-    ORDER BY CAST(s.createdAt AS date)
-""")
-    List<Object[]> revenueSeriesBetween(
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end);
+                SELECT CAST(s.createdAt AS date), COALESCE(SUM(s.grandTotal), 0), COUNT(s)
+                FROM SalesOrder s
+                WHERE s.createdAt >= :start AND s.createdAt < :end
+                GROUP BY CAST(s.createdAt AS date)
+                ORDER BY CAST(s.createdAt AS date)
+            """)
+    List<Object[]> revenueSeriesBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     @Query("""
-    SELECT s.paymentMode, COUNT(s), COALESCE(SUM(s.grandTotal), 0)
-    FROM SalesOrder s
-    WHERE s.createdAt >= :start AND s.createdAt < :end
-    GROUP BY s.paymentMode
-""")
-    List<Object[]> paymentBreakdownBetween(
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end);
+                SELECT s.paymentMode, COUNT(s), COALESCE(SUM(s.grandTotal), 0)
+                FROM SalesOrder s
+                WHERE s.createdAt >= :start AND s.createdAt < :end
+                GROUP BY s.paymentMode
+            """)
+    List<Object[]> paymentBreakdownBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     @Query("""
-    SELECT s.customerName, s.customerMobile, COUNT(s), COALESCE(SUM(s.grandTotal), 0)
-    FROM SalesOrder s
-    WHERE s.createdAt >= :start AND s.createdAt < :end
-    GROUP BY s.customerMobile, s.customerName
-    ORDER BY COUNT(s) DESC
-""")
-    List<Object[]> topCustomersBetween(
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end,
-            Pageable pageable);
+                SELECT s.customerName, s.customerMobile, COUNT(s), COALESCE(SUM(s.grandTotal), 0)
+                FROM SalesOrder s
+                WHERE s.createdAt >= :start AND s.createdAt < :end
+                GROUP BY s.customerMobile, s.customerName
+                ORDER BY COUNT(s) DESC
+            """)
+    List<Object[]> topCustomersBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end, Pageable pageable);
 
     // Mobiles whose FIRST-ever order falls in the range = new customers acquired in the period.
     @Query("""
-    SELECT s.customerMobile
-    FROM SalesOrder s
-    GROUP BY s.customerMobile
-    HAVING MIN(s.createdAt) >= :start AND MIN(s.createdAt) < :end
-""")
-    List<String> newCustomerMobilesBetween(
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end);
+                SELECT s.customerMobile
+                FROM SalesOrder s
+                GROUP BY s.customerMobile
+                HAVING MIN(s.createdAt) >= :start AND MIN(s.createdAt) < :end
+            """)
+    List<String> newCustomerMobilesBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     @Query("SELECT s FROM SalesOrder s ORDER BY s.createdAt DESC")
     List<SalesOrder> findRecent(Pageable pageable);

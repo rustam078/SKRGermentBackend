@@ -14,48 +14,21 @@ public class ProductionSpecification {
     private ProductionSpecification() {
     }
 
-    public static Specification<ProductionEntry> filter(
-            LocalDate fromDate,
-            LocalDate toDate,
-            UUID employeeId) {
+    public static Specification<ProductionEntry> filter(LocalDate fromDate, LocalDate toDate, UUID employeeId) {
 
         return (root, query, cb) -> {
-
-            List<Predicate> predicates =
-                    new ArrayList<>();
+            List<Predicate> predicates = new ArrayList<>();
 
             if (fromDate != null) {
-                predicates.add(
-                        cb.greaterThanOrEqualTo(
-                                root.get("productionDate"),
-                                fromDate
-                        )
-                );
+                predicates.add(cb.greaterThanOrEqualTo(root.get("productionDate"), fromDate));
             }
-
             if (toDate != null) {
-                predicates.add(
-                        cb.lessThanOrEqualTo(
-                                root.get("productionDate"),
-                                toDate
-                        )
-                );
+                predicates.add(cb.lessThanOrEqualTo(root.get("productionDate"), toDate));
             }
-
             if (employeeId != null) {
-                predicates.add(
-                        cb.equal(
-                                root.get("employee").get("id"),
-                                employeeId
-                        )
-                );
+                predicates.add(cb.equal(root.get("employee").get("id"), employeeId));
             }
-
-            return cb.and(
-                    predicates.toArray(
-                            new Predicate[0]
-                    )
-            );
+            return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
 }

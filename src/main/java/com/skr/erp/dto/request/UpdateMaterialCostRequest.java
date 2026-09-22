@@ -13,10 +13,8 @@ public class UpdateMaterialCostRequest {
     @NotNull
     @DecimalMin("0.00")
     private BigDecimal cost;
-
     @DecimalMin("0.00")
     private BigDecimal salePrice;
-
     @NotNull
     private LocalDate effectiveFrom;
 

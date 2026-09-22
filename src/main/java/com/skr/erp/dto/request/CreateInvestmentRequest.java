@@ -18,21 +18,14 @@ import java.util.UUID;
 public class CreateInvestmentRequest {
 
     private UUID vendorId;
-
     @NotNull
     private InvestmentType investmentType;
-
     @NotNull
     private LocalDate purchaseDate;
-
     private String invoiceNumber;
-
     private BigDecimal gstAmount = BigDecimal.ZERO;
-
     private BigDecimal discountAmount = BigDecimal.ZERO;
-
     private BigDecimal otherCharge = BigDecimal.ZERO;
-
     @Valid
     @NotEmpty
     private List<CreateInvestmentItemRequest> items;

@@ -12,13 +12,9 @@ import java.util.UUID;
 public class ProductPieceCodeResponse {
 
     private UUID id;
-
     private String code;
-
     private BigDecimal rate;
-
     private Boolean active;
-
     private Boolean used;
     private LocalDateTime createdAt;
 }

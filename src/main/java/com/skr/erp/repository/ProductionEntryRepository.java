@@ -6,7 +6,5 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.UUID;
 
-public interface ProductionEntryRepository
-        extends JpaRepository<ProductionEntry, UUID>,
-        JpaSpecificationExecutor<ProductionEntry> {
+public interface ProductionEntryRepository extends JpaRepository<ProductionEntry, UUID>, JpaSpecificationExecutor<ProductionEntry> {
 }

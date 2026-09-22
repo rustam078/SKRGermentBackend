@@ -23,11 +23,6 @@ public class ProductionEntry extends BaseEntity {
 
     private String remarks;
 
-    @OneToMany(
-            mappedBy = "productionEntry",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    private List<ProductionEntryDetail> details =
-            new ArrayList<>();
+    @OneToMany(mappedBy = "productionEntry", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProductionEntryDetail> details = new ArrayList<>();
 }

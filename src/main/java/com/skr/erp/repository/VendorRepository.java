@@ -7,9 +7,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface VendorRepository extends
-        JpaRepository<Vendor, UUID>,
-        JpaSpecificationExecutor<Vendor> {
+public interface VendorRepository extends JpaRepository<Vendor, UUID>, JpaSpecificationExecutor<Vendor> {
 
     Optional<Vendor> findByNameIgnoreCase(String name);
 

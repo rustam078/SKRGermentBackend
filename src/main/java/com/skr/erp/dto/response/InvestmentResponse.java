@@ -14,23 +14,14 @@ import java.util.UUID;
 public class InvestmentResponse {
 
     private UUID id;
-
     private String referenceNumber;
-
     private String invoiceNumber;
-
     private UUID vendorId;
-
     private String vendorName;
-
     private InvestmentType investmentType;
-
     private LocalDate purchaseDate;
-
     private Integer itemCount;
-
     private BigDecimal grandTotal;
-
     private BigDecimal amountPaid;
     private PaymentStatus paymentStatus;
 }

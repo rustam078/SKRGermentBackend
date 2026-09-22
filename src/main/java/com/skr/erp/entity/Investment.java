@@ -49,11 +49,6 @@ public class Investment extends BaseEntity {
     @Column(nullable = false)
     private BigDecimal grandTotal = BigDecimal.ZERO;
 
-    @OneToMany(
-            mappedBy = "investment",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    private List<InvestmentItem> items =
-            new ArrayList<>();
+    @OneToMany(mappedBy = "investment", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<InvestmentItem> items = new ArrayList<>();
 }

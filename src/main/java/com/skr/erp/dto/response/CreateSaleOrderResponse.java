@@ -15,16 +15,10 @@ import java.util.UUID;
 public class CreateSaleOrderResponse {
 
     private UUID saleOrderId;
-
     private String orderNumber;
-
     private String invoiceNumber;
-
     private BigDecimal subtotal;
-
     private BigDecimal discount;
-
     private BigDecimal grandTotal;
-
     private PaymentStatus paymentStatus;
 }

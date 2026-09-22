@@ -11,10 +11,7 @@ import java.util.UUID;
 @Setter
 @Builder
 public class PieceCodeDropdownResponse {
-
     private UUID id;
-
     private String code;
-
     private BigDecimal rate;
 }

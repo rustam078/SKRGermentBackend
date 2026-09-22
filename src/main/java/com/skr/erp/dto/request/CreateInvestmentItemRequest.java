@@ -17,17 +17,13 @@ public class CreateInvestmentItemRequest {
 
     @NotNull
     private InvestmentItemType itemType;
-
     @NotBlank
     private String itemName;
-
     @NotNull
     @DecimalMin("0.01")
     private BigDecimal quantity;
-
     @NotNull
     private UnitType unit;
-
     @NotNull
     @DecimalMin("0.00")
     private BigDecimal rate;

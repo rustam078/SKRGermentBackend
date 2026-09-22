@@ -13,26 +13,16 @@ import java.util.UUID;
 public class ProductResponse {
 
     private UUID id;
-
     private String name;
     private ProductSource source;
-
     private String iconName;
-
     private String description;
-
     private Boolean active;
-
     private Integer totalPieceCodes;
-
     private Integer activePieceCodes;
-
     private Integer inactivePieceCodes;
-
     // Current effective selling price (null when none configured).
     private BigDecimal sellingPrice;
-
     private LocalDateTime createdAt;
-
     private LocalDateTime updatedAt;
 }

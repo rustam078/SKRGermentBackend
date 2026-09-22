@@ -33,138 +33,72 @@ public class ProductController {
     private final SalesService salesService;
 
     @PostMapping
-    public CommonResponse<ProductResponse> create(
-            @Valid @RequestBody CreateProductRequest request) {
-
-        return CommonResponse.<ProductResponse>builder()
-                .success(true)
+    public CommonResponse<ProductResponse> create(@Valid @RequestBody CreateProductRequest request) {
+        return CommonResponse.<ProductResponse>builder().success(true)
                 .message("Product created successfully")
-                .data(productService.create(request))
-                .build();
+                .data(productService.create(request)).build();
     }
 
     @GetMapping
     public CommonResponse<List<ProductResponse>> getAll() {
-
-        return CommonResponse.<List<ProductResponse>>builder()
-                .success(true)
+        return CommonResponse.<List<ProductResponse>>builder().success(true)
                 .message("Products fetched successfully")
-                .data(productService.getAll())
-                .build();
+                .data(productService.getAll()).build();
     }
 
     @PostMapping("/{productId}/rates")
-    public CommonResponse<ProductRateResponse> addRate(
-            @PathVariable UUID productId,
-            @Valid @RequestBody CreateProductRateRequest request) {
-
-        return CommonResponse.<ProductRateResponse>builder()
-                .success(true)
+    public CommonResponse<ProductRateResponse> addRate(@PathVariable UUID productId, @Valid @RequestBody CreateProductRateRequest request) {
+        return CommonResponse.<ProductRateResponse>builder().success(true)
                 .message("Rate added successfully")
-                .data(productService.addRate(productId, request))
-                .build();
+                .data(productService.addRate(productId, request)).build();
     }
 
     @GetMapping("/{productId}/rates")
-    public CommonResponse<List<ProductRateResponse>> getRates(
-            @PathVariable UUID productId) {
-
-        return CommonResponse.<List<ProductRateResponse>>builder()
-                .success(true)
+    public CommonResponse<List<ProductRateResponse>> getRates(@PathVariable UUID productId) {
+        return CommonResponse.<List<ProductRateResponse>>builder().success(true)
                 .message("Rates fetched successfully")
-                .data(productService.getRates(productId))
-                .build();
+                .data(productService.getRates(productId)).build();
     }
 
     @GetMapping("/{productId}/rate")
-    public CommonResponse<BigDecimal> getRateByDate(
-            @PathVariable UUID productId,
-            @RequestParam LocalDate date) {
-
-        return CommonResponse.<BigDecimal>builder()
-                .success(true)
+    public CommonResponse<BigDecimal> getRateByDate(@PathVariable UUID productId, @RequestParam LocalDate date) {
+        return CommonResponse.<BigDecimal>builder().success(true)
                 .message("Rate fetched successfully")
-                .data(
-                        productService.getRateByDate(
-                                productId,
-                                date))
-                .build();
+                .data(productService.getRateByDate(productId, date)).build();
     }
 
     @PatchMapping("/{id}/status")
-    public CommonResponse<ProductResponse>
-    toggleStatus(
-            @PathVariable UUID id) {
-
-        ProductResponse response =
-                productService.toggleStatus(id);
-
-        return CommonResponse
-                .<ProductResponse>builder()
-                .success(true)
-                .message(
-                        response.getActive()
-                                ? "Product activated successfully"
-                                : "Product deactivated successfully")
-                .data(response)
-                .build();
+    public CommonResponse<ProductResponse> toggleStatus(@PathVariable UUID id) {
+        ProductResponse response = productService.toggleStatus(id);
+        return CommonResponse.<ProductResponse>builder().success(true)
+                .message(response.getActive() ? "Product activated successfully" : "Product deactivated successfully")
+                .data(response).build();
     }
 
     @DeleteMapping("/{id}")
-    public CommonResponse<Void> delete(
-            @PathVariable UUID id) {
-
+    public CommonResponse<Void> delete(@PathVariable UUID id) {
         productService.delete(id);
-
-        return CommonResponse
-                .<Void>builder()
-                .success(true)
-                .message(
-                        "Product deleted successfully")
-                .build();
+        return CommonResponse.<Void>builder().success(true)
+                .message("Product deleted successfully").build();
     }
 
     @GetMapping("/{id}")
-    public CommonResponse<ProductDetailsResponse>
-    getById(
-            @PathVariable UUID id) {
-
-        return CommonResponse
-                .<ProductDetailsResponse>builder()
-                .success(true)
-                .message(
-                        "Product details fetched successfully")
-                .data(
-                        productService.getById(id))
-                .build();
+    public CommonResponse<ProductDetailsResponse> getById(@PathVariable UUID id) {
+        return CommonResponse.<ProductDetailsResponse>builder().success(true)
+                .message("Product details fetched successfully")
+                .data(productService.getById(id)).build();
     }
 
     @GetMapping("/{productId}/piece-codes/active")
-    public CommonResponse<
-            List<PieceCodeDropdownResponse>>
-    getActivePieceCodes(
-            @PathVariable UUID productId) {
-
-        return CommonResponse
-                .<List<PieceCodeDropdownResponse>>builder()
-                .success(true)
-                .message(
-                        "Active piece codes fetched successfully")
-                .data(
-                        productService.getActivePieceCodes(
-                                productId))
-                .build();
+    public CommonResponse<List<PieceCodeDropdownResponse>> getActivePieceCodes(@PathVariable UUID productId) {
+        return CommonResponse.<List<PieceCodeDropdownResponse>>builder().success(true)
+                .message("Active piece codes fetched successfully")
+                .data(productService.getActivePieceCodes(productId)).build();
     }
 
     @GetMapping("/{productId}/sales")
-    public ResponseEntity<PageResponse<ProductSaleHistoryResponse>> getProductSales(
-            @PathVariable UUID productId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-
+    public ResponseEntity<PageResponse<ProductSaleHistoryResponse>> getProductSales(@PathVariable UUID productId, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(
-                salesService.getProductSales(productId, pageable)
-        );
+        return ResponseEntity.ok(salesService.getProductSales(productId, pageable));
     }
 }

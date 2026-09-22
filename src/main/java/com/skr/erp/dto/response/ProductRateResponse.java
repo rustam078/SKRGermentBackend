@@ -13,14 +13,9 @@ import java.util.UUID;
 public class ProductRateResponse {
 
     private UUID id;
-
     private UUID productId;
-
     private String productName;
-
     private BigDecimal rate;
-
     private LocalDate effectiveFrom;
-
     private RateStatus status;
 }

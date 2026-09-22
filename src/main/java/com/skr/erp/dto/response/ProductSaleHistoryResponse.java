@@ -9,7 +9,6 @@ import java.time.LocalDate;
 @Data
 @Builder
 public class ProductSaleHistoryResponse {
-
     private String invoiceNo;
     private LocalDate saleDate;
     private String customerName;
