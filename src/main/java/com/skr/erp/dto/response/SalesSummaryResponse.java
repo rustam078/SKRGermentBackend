@@ -1,0 +1,19 @@
+package com.skr.erp.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+
+/** Aggregate totals for the sales list header, respecting the active filters. */
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class SalesSummaryResponse {
+    private long count;
+    private BigDecimal revenue;
+    private BigDecimal discount;
+}
