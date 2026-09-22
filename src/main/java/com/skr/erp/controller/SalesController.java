@@ -51,6 +51,22 @@ public class SalesController {
         );
     }
 
+    @GetMapping("/summary")
+    public ResponseEntity<SalesSummaryResponse> getSalesSummary(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate fromDate,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate toDate,
+            @RequestParam(required = false) PaymentMode paymentMode,
+            @RequestParam(required = false) PaymentStatus paymentStatus) {
+
+        return ResponseEntity.ok(
+                salesService.getSalesSummary(search, fromDate, toDate, paymentMode, paymentStatus));
+    }
+
     @GetMapping("/dashboard")
     public ResponseEntity<SalesDashboardResponse> getDashboard() {
         return ResponseEntity.ok(salesService.getDashboard());

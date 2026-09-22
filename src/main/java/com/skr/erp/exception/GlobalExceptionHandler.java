@@ -8,9 +8,26 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    // Scanned QR sale needs physical-stock reconciliation — return a structured 409 the UI
+    // can detect (reconcileNeeded) and act on (batches), rather than a plain error message.
+    @ExceptionHandler(ReconciliationRequiredException.class)
+    public ResponseEntity<Map<String, Object>> handleReconciliation(
+            ReconciliationRequiredException ex) {
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", false);
+        body.put("reconcileNeeded", true);
+        body.put("message", ex.getMessage());
+        body.put("batches", ex.getBatches());
+        body.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
 
     @ExceptionHandler(InvalidCredentialsException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)

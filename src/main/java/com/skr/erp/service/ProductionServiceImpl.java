@@ -402,6 +402,10 @@ public class ProductionServiceImpl implements ProductionService {
                 .format(java.time.format.DateTimeFormatter.ofPattern("dd-MMM-yyyy hh:mm a"));
 
         return template
+                .replace("{{companyName}}", esc(setting("COMPANY_NAME", "SKR Garment")))
+                .replace("{{companyAddress}}", esc(setting("COMPANY_ADDRESS", "")))
+                .replace("{{companyContact}}", esc(setting("COMPANY_CONTACT", "")))
+                .replace("{{companyGstin}}", esc(setting("COMPANY_GSTIN", "-")))
                 .replace("{{refId}}", esc(d.getId() != null ? d.getId().toString() : "-"))
                 .replace("{{productionDate}}", d.getProductionDate() != null
                         ? d.getProductionDate().format(java.time.format.DateTimeFormatter.ofPattern("dd-MMM-yyyy")) : "-")
@@ -421,6 +425,14 @@ public class ProductionServiceImpl implements ProductionService {
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;");
+    }
+
+    /** Live system-setting value, or the fallback when missing/blank. */
+    private String setting(String key, String fallback) {
+        return systemSettingRepository.findBySettingKey(key)
+                .map(SystemSetting::getSettingValue)
+                .filter(s -> s != null && !s.isBlank())
+                .orElse(fallback);
     }
 
 

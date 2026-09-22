@@ -21,5 +21,9 @@ public class VendorPurchaseResponse {
 
     private BigDecimal grandTotal;
 
+    private BigDecimal amountPaid;
+    private BigDecimal amountDue;
+    private String paymentStatus; // PENDING | PARTIALLY_PAID | PAID
+
     private List<VendorPurchaseItemResponse> items;
 }

@@ -24,6 +24,13 @@ public interface QrUnitService {
     void consumeForSale(String batchNumber, List<String> serials, UUID saleOrderId);
 
     /**
+     * Validate scanned serials for a sale WITHOUT marking them SOLD: each must exist, belong to
+     * the given batch and be AVAILABLE. Throws otherwise (so a used/void/unknown tag fails hard
+     * and is never offered for reconciliation).
+     */
+    void validateUnitsForSale(String batchNumber, List<String> serials);
+
+    /**
      * Remove up to {@code count} AVAILABLE labels from a batch (newest first) when its stock is
      * reduced, so the QR labels stay in step with the stock. SOLD/VOID units are never removed.
      * Returns how many were actually removed.

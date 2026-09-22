@@ -10,6 +10,7 @@ import com.skr.erp.entity.Investment;
 import com.skr.erp.entity.InvestmentItem;
 import com.skr.erp.entity.Vendor;
 import com.skr.erp.exception.BusinessException;
+import com.skr.erp.repository.InvestmentPaymentRepository;
 import com.skr.erp.repository.InvestmentRepository;
 import com.skr.erp.repository.VendorRepository;
 import jakarta.persistence.criteria.Predicate;
@@ -30,6 +31,7 @@ public class VendorServiceImpl implements VendorService {
 
     private final VendorRepository vendorRepository;
     private final InvestmentRepository investmentRepository;
+    private final InvestmentPaymentRepository investmentPaymentRepository;
 
     @Override
     @Transactional
@@ -282,6 +284,13 @@ public class VendorServiceImpl implements VendorService {
     private VendorPurchaseResponse toVendorPurchase(
             Investment investment) {
 
+        BigDecimal grand = investment.getGrandTotal() != null ? investment.getGrandTotal() : BigDecimal.ZERO;
+        BigDecimal paid = investmentPaymentRepository.sumByInvestment(investment.getId());
+        if (paid == null) paid = BigDecimal.ZERO;
+        BigDecimal due = grand.subtract(paid).max(BigDecimal.ZERO);
+        String status = paid.compareTo(BigDecimal.ZERO) <= 0 ? "PENDING"
+                : (paid.compareTo(grand) >= 0 ? "PAID" : "PARTIALLY_PAID");
+
         return VendorPurchaseResponse
                 .builder()
                 .invoiceNumber(
@@ -292,6 +301,9 @@ public class VendorServiceImpl implements VendorService {
                         investment.getPurchaseDate())
                 .grandTotal(
                         investment.getGrandTotal())
+                .amountPaid(paid)
+                .amountDue(due)
+                .paymentStatus(status)
                 .items(
                         investment.getItems()
                                 .stream()

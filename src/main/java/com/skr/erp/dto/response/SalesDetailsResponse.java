@@ -26,6 +26,7 @@ public class SalesDetailsResponse {
     private String remarks;
     private BigDecimal subtotal;
     private BigDecimal discount;
+    private BigDecimal tax;
     private BigDecimal grandTotal;
     private BigDecimal totalProfit;
     private List<SalesItemResponse> items;

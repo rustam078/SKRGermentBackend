@@ -120,6 +120,26 @@ public class QrUnitServiceImpl implements QrUnitService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public void validateUnitsForSale(String batchNumber, List<String> serials) {
+        if (serials == null || serials.isEmpty()) {
+            return;
+        }
+        for (String serial : serials) {
+            ProductUnit unit = productUnitRepository.findBySerial(serial)
+                    .orElseThrow(() -> new BusinessException("Unknown unit: " + serial));
+            if (!unit.getBatchNumber().equals(batchNumber)) {
+                throw new BusinessException(
+                        "Unit " + serial + " does not belong to batch " + batchNumber + ".");
+            }
+            if (unit.getStatus() != ProductUnitStatus.AVAILABLE) {
+                throw new BusinessException(
+                        "Unit " + serial + " is already " + unit.getStatus() + ".");
+            }
+        }
+    }
+
+    @Override
     public void consumeForSale(String batchNumber, List<String> serials, UUID saleOrderId) {
         if (serials == null || serials.isEmpty()) {
             return;

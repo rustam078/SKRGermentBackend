@@ -8,10 +8,7 @@ import java.time.LocalDateTime;
 @Data
 @Builder
 public class ErrorResponse {
-
     private boolean success;
-
     private String message;
-
     private LocalDateTime timestamp;
 }

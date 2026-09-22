@@ -1,5 +1,6 @@
 package com.skr.erp.service;
 
+import com.skr.erp.common.constants.InventoryBatchStatus;
 import com.skr.erp.common.constants.InventoryTransactionType;
 import com.skr.erp.common.constants.PaymentMode;
 import com.skr.erp.common.constants.PaymentStatus;
@@ -9,6 +10,7 @@ import com.skr.erp.dto.request.CreateSaleOrderRequest;
 import com.skr.erp.dto.response.*;
 import com.skr.erp.entity.*;
 import com.skr.erp.exception.BusinessException;
+import com.skr.erp.exception.ReconciliationRequiredException;
 import com.skr.erp.repository.*;
 import com.skr.erp.specification.SalesSpecification;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +41,32 @@ public class SalesServiceImpl implements  SalesService{
     private final com.skr.erp.qr.QrUnitService qrUnitService;
 
     private static final String SALES_INVOICE_TEMPLATE_KEY = "SALES_INVOICE_TEMPLATE";
+    private static final String SALES_GST_ENABLED_KEY = "SALES_GST_ENABLED";
+    private static final String DEFAULT_GST_PERCENT_KEY = "DEFAULT_GST_PERCENT";
+
+    /**
+     * GST on the net amount (subtotal - discount) when SALES_GST_ENABLED is on;
+     * zero otherwise. The percent is read live from DEFAULT_GST_PERCENT.
+     */
+    private BigDecimal computeGst(BigDecimal net) {
+        boolean enabled = systemSettingRepository.findBySettingKey(SALES_GST_ENABLED_KEY)
+                .map(s -> "true".equalsIgnoreCase(s.getSettingValue()))
+                .orElse(false);
+        if (!enabled || net.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal percent = systemSettingRepository.findBySettingKey(DEFAULT_GST_PERCENT_KEY)
+                .map(s -> {
+                    try {
+                        return new BigDecimal(s.getSettingValue());
+                    } catch (NumberFormatException e) {
+                        return BigDecimal.ZERO;
+                    }
+                })
+                .orElse(BigDecimal.ZERO);
+        return net.multiply(percent)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+    }
 
 
     @Override
@@ -108,6 +136,37 @@ public class SalesServiceImpl implements  SalesService{
         }
 
         // ==========================
+        // Reconciliation pre-check (scanned lines)
+        // ==========================
+        // Validate every scanned QR up front (unknown / wrong-batch / already SOLD-VOID fail hard —
+        // NO reconciliation for used tags). Then, batch-wise, find batches whose system stock is
+        // short of the scanned quantity (FIFO already consumed it). Any such batch not yet approved
+        // by the user aborts with ReconciliationRequiredException so the UI can ask once per batch.
+        java.util.Set<String> approvedBatches = request.getReconcileBatches() != null
+                ? new java.util.HashSet<>(request.getReconcileBatches())
+                : java.util.Collections.emptySet();
+        List<ReconcileBatchInfo> needsReconcile = new java.util.ArrayList<>();
+        for (CreateSaleOrderItemRequest item : request.getItems()) {
+            if (item.getBatchNumber() == null) continue;
+            InventoryBatch batch = inventoryBatchRepository.findByBatchNumber(item.getBatchNumber())
+                    .orElseThrow(() -> new BusinessException("Batch " + item.getBatchNumber() + " not found."));
+            qrUnitService.validateUnitsForSale(item.getBatchNumber(), item.getSerials());
+            BigDecimal available = batch.getQuantityAvailable();
+            if (available.compareTo(item.getQuantity()) < 0 && !approvedBatches.contains(item.getBatchNumber())) {
+                needsReconcile.add(ReconcileBatchInfo.builder()
+                        .batchNumber(item.getBatchNumber())
+                        .productName(batch.getProduct() != null ? batch.getProduct().getName() : "")
+                        .available(available)
+                        .requested(item.getQuantity())
+                        .deficit(item.getQuantity().subtract(available))
+                        .build());
+            }
+        }
+        if (!needsReconcile.isEmpty()) {
+            throw new ReconciliationRequiredException(needsReconcile);
+        }
+
+        // ==========================
         // Create Order
         // ==========================
 
@@ -173,11 +232,14 @@ public class SalesServiceImpl implements  SalesService{
             totalDiscount = totalDiscount.add(nz(item.getDiscount()));
         }
 
+        // Net amount after discount, then optional GST on top (controlled by settings).
+        BigDecimal net = subtotal.subtract(totalDiscount);
+        BigDecimal tax = computeGst(net);
+
         order.setSubtotal(subtotal);
         order.setDiscount(totalDiscount);
-        order.setGrandTotal(
-                subtotal.subtract(totalDiscount)
-        );
+        order.setTax(tax);
+        order.setGrandTotal(net.add(tax));
 
         salesOrderRepository.save(order);
 
@@ -228,6 +290,33 @@ public class SalesServiceImpl implements  SalesService{
                 .totalElements(salesPage.getTotalElements())
                 .totalPages(salesPage.getTotalPages())
                 .last(salesPage.isLast())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SalesSummaryResponse getSalesSummary(
+            String search, LocalDate fromDate, LocalDate toDate,
+            PaymentMode paymentMode, PaymentStatus paymentStatus) {
+
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+            throw new BusinessException("fromDate cannot be after toDate");
+        }
+
+        // Same filter as the list, so the header totals always match the rows.
+        List<SalesOrder> orders = salesOrderRepository.findAll(
+                SalesSpecification.filter(search, fromDate, toDate, paymentMode, paymentStatus));
+
+        BigDecimal revenue = BigDecimal.ZERO;
+        BigDecimal discount = BigDecimal.ZERO;
+        for (SalesOrder o : orders) {
+            revenue = revenue.add(o.getGrandTotal() != null ? o.getGrandTotal() : BigDecimal.ZERO);
+            discount = discount.add(o.getDiscount() != null ? o.getDiscount() : BigDecimal.ZERO);
+        }
+        return SalesSummaryResponse.builder()
+                .count(orders.size())
+                .revenue(revenue)
+                .discount(discount)
                 .build();
     }
 
@@ -284,6 +373,10 @@ public class SalesServiceImpl implements  SalesService{
         String provider = (inv.getPaymentProvider() == null || inv.getPaymentProvider().isBlank()) ? "" : inv.getPaymentProvider();
 
         return template
+                .replace("{{companyName}}", esc(setting("COMPANY_NAME", "SKR Garment")))
+                .replace("{{companyAddress}}", esc(setting("COMPANY_ADDRESS", "")))
+                .replace("{{companyContact}}", esc(setting("COMPANY_CONTACT", "")))
+                .replace("{{companyGstin}}", esc(setting("COMPANY_GSTIN", "-")))
                 .replace("{{invoiceNumber}}", esc(inv.getInvoiceNumber()))
                 .replace("{{date}}", inv.getDate() != null
                         ? inv.getDate().format(java.time.format.DateTimeFormatter.ofPattern("dd-MMM-yyyy")) : "-")
@@ -321,6 +414,14 @@ public class SalesServiceImpl implements  SalesService{
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;");
+    }
+
+    /** Live system-setting value, or the fallback when missing/blank. */
+    private String setting(String key, String fallback) {
+        return systemSettingRepository.findBySettingKey(key)
+                .map(SystemSetting::getSettingValue)
+                .filter(s -> s != null && !s.isBlank())
+                .orElse(fallback);
     }
 
     @Override
@@ -495,6 +596,7 @@ public class SalesServiceImpl implements  SalesService{
                 .remarks(order.getRemarks())
                 .subtotal(order.getSubtotal())
                 .discount(order.getDiscount())
+                .tax(order.getTax())
                 .grandTotal(order.getGrandTotal())
                 .totalProfit(totalProfit)
                 .items(itemResponses)
@@ -689,43 +791,61 @@ public class SalesServiceImpl implements  SalesService{
                     "Batch " + item.getBatchNumber() + " does not belong to " + product.getName() + ".");
         }
 
-        BigDecimal available = batch.getQuantityAvailable();
-        if (available.compareTo(item.getQuantity()) < 0) {
-            throw new BusinessException(
-                    "Batch " + item.getBatchNumber() + " has only " + available + " available.");
-        }
+        BigDecimal needed = item.getQuantity();
 
-        // Mark the scanned units SOLD (validates each serial is AVAILABLE in this batch).
-        qrUnitService.consumeForSale(item.getBatchNumber(), item.getSerials(), order.getId());
-
-        BigDecimal remainingInBatch = available.subtract(item.getQuantity());
-        batch.setQuantityAvailable(remainingInBatch);
-        if (remainingInBatch.compareTo(BigDecimal.ZERO) == 0) {
-            batch.setStatus(com.skr.erp.common.constants.InventoryBatchStatus.SOLD);
-        }
-
+        // Order item first so the reconciliation & sale transactions can reference it.
         SalesOrderItem orderItem = SalesOrderItem.builder()
                 .salesOrder(order)
                 .product(product)
-                .quantity(item.getQuantity())
+                .quantity(needed)
                 .discount(nz(item.getDiscount()))
                 .unitPrice(batch.getUnitCost())
                 .sellingPrice(item.getSellingPrice())
                 .batchNumber(item.getBatchNumber())
                 .lineTotal(item.getSellingPrice()
-                        .multiply(item.getQuantity())
+                        .multiply(needed)
                         .subtract(nz(item.getDiscount()))
                         .setScale(2, RoundingMode.HALF_UP))
                 .build();
 
         orderItem = salesOrderItemRepository.save(orderItem);
 
+        // FIFO may have already drained this batch's system stock even though the scanned
+        // QR is still physically available. The reconciliation was approved upstream
+        // (createSale threw ReconciliationRequiredException otherwise), so top the batch
+        // up by the deficit with an audited RECONCILIATION transaction, then sell normally.
+        BigDecimal available = batch.getQuantityAvailable();
+        if (available.compareTo(needed) < 0) {
+            BigDecimal deficit = needed.subtract(available);
+            InventoryTransaction reconciliation = InventoryTransaction.builder()
+                    .salesOrderItem(orderItem)
+                    .batch(batch)
+                    .product(product)
+                    .transactionType(InventoryTransactionType.RECONCILIATION)
+                    .quantity(deficit)
+                    .unitCost(batch.getUnitCost())
+                    .reason("Physical QR stock reconciliation")
+                    .build();
+            inventoryTransactionRepository.save(reconciliation);
+            batch.setQuantityAvailable(available.add(deficit));
+            available = batch.getQuantityAvailable();
+        }
+
+        // Mark the scanned units SOLD (validates each serial is AVAILABLE in this batch).
+        qrUnitService.consumeForSale(item.getBatchNumber(), item.getSerials(), order.getId());
+
+        BigDecimal remainingInBatch = available.subtract(needed);
+        batch.setQuantityAvailable(remainingInBatch);
+        batch.setStatus(remainingInBatch.compareTo(BigDecimal.ZERO) == 0
+                ? InventoryBatchStatus.SOLD
+                : InventoryBatchStatus.ACTIVE);
+
         InventoryTransaction transaction = InventoryTransaction.builder()
                 .salesOrderItem(orderItem)
                 .batch(batch)
                 .product(product)
                 .transactionType(InventoryTransactionType.SALE)
-                .quantity(item.getQuantity())
+                .quantity(needed)
                 .unitCost(batch.getUnitCost())
                 .build();
 

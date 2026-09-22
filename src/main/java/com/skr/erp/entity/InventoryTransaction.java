@@ -32,4 +32,8 @@ public class InventoryTransaction extends BaseEntity {
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal unitCost;
+
+    /** Free-text audit note, e.g. the source of a RECONCILIATION adjustment. */
+    @Column(length = 200)
+    private String reason;
 }

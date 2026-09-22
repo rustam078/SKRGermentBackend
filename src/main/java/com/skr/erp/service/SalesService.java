@@ -24,6 +24,13 @@ public interface SalesService {
             PaymentStatus paymentStatus,
             Pageable pageable);
 
+    SalesSummaryResponse getSalesSummary(
+            String search,
+            LocalDate fromDate,
+            LocalDate toDate,
+            PaymentMode paymentMode,
+            PaymentStatus paymentStatus);
+
     SalesDetailsResponse getSaleDetails(UUID saleId);
 
     InvoiceResponse getInvoice(UUID saleId);
