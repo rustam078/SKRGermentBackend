@@ -41,6 +41,17 @@ public class GlobalExceptionHandler {
                 .build();
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ErrorResponse handleForbidden(ForbiddenException ex) {
+
+        return ErrorResponse.builder()
+                .success(false)
+                .message(ex.getMessage())
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleValidation(
