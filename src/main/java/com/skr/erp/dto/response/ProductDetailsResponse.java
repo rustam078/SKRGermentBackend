@@ -21,6 +21,7 @@ public class ProductDetailsResponse {
     private Integer totalPieceCodes;
     private Integer activePieceCodes;
     private Integer inactivePieceCodes;
+    private Boolean hasImage;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<ProductPieceCodeResponse> pieceCodes;

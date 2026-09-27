@@ -43,6 +43,11 @@ public class PermissionInterceptor implements HandlerInterceptor {
             return true;
         }
 
+        // Product images are public on GET so plain <img src> tags can load them (no auth header).
+        if ("GET".equalsIgnoreCase(method) && path.matches("/api/products/[^/]+/image")) {
+            return true;
+        }
+
         AppUser user = resolveUser(request);
 
         // ADMIN has full access.

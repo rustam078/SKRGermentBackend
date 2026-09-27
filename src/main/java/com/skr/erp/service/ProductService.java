@@ -17,8 +17,10 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -31,6 +33,7 @@ public class ProductService {
     private final ProductPieceCodeRepository productPieceCodeRepository;
     private final InvestmentItemRepository investmentItemRepository;
     private final ProductMaterialCostRepository productMaterialCostRepository;
+    private final ProductImageRepository productImageRepository;
 
     public ProductResponse create(CreateProductRequest request) {
         productRepository.findByNameIgnoreCase(request.getName())
@@ -64,6 +67,9 @@ public class ProductService {
             }
         }
 
+        // One query → which products have an image (avoids N+1).
+        Set<UUID> productsWithImage = new HashSet<>(productImageRepository.findAllProductIds());
+
         return productRepository.findAll().stream().map(product -> {
 
             int totalCodes = (int) productPieceCodeRepository.countByProductId(product.getId());
@@ -80,6 +86,7 @@ public class ProductService {
                     .activePieceCodes(activeCodes)
                     .inactivePieceCodes(inactiveCodes)
                     .sellingPrice(salePriceByProduct.get(product.getId()))
+                    .hasImage(productsWithImage.contains(product.getId()))
                     .createdAt(product.getCreatedAt())
                     .updatedAt(product.getUpdatedAt()).build();
         }).toList();
@@ -183,6 +190,7 @@ public class ProductService {
                 .totalPieceCodes((int) productPieceCodeRepository.countByProductId(productId))
                 .activePieceCodes((int) productPieceCodeRepository.countByProductIdAndActiveTrue(productId))
                 .inactivePieceCodes((int) productPieceCodeRepository.countByProductIdAndActiveFalse(productId))
+                .hasImage(productImageRepository.existsByProductId(productId))
                 .pieceCodes(pieceCodes).createdAt(product.getCreatedAt()).updatedAt(product.getUpdatedAt())
                 .build();
     }

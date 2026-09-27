@@ -23,6 +23,8 @@ public class ProductResponse {
     private Integer inactivePieceCodes;
     // Current effective selling price (null when none configured).
     private BigDecimal sellingPrice;
+    // True when the product has an uploaded image (fetch it at /api/products/{id}/image).
+    private Boolean hasImage;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
