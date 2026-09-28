@@ -1,8 +1,10 @@
 package com.skr.erp.qr;
 
+import com.skr.erp.common.response.PageResponse;
 import com.skr.erp.qr.dto.GenerateUnitsRequest;
 import com.skr.erp.qr.dto.GenerateUnitsResponse;
 import com.skr.erp.qr.dto.ProductUnitResponse;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.UUID;
@@ -11,6 +13,7 @@ public interface QrUnitService {
 
     GenerateUnitsResponse generateUnits(String batchNumber, GenerateUnitsRequest request);
     List<ProductUnitResponse> listUnits(String batchNumber);
+    PageResponse<ProductUnitResponse> listUnits(String batchNumber, Pageable pageable);
     ProductUnitResponse scanLookup(String code);
     ProductUnitResponse voidUnit(String serial);
     /**

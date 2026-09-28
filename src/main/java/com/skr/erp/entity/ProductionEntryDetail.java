@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Entity
 @Table(name = "production_entry_detail")
@@ -38,4 +39,7 @@ public class ProductionEntryDetail extends BaseEntity {
 
     @Column(name = "piece_code_snapshot")
     private String pieceCodeSnapshot;
+
+    @Column(name = "inventory_batch_id")
+    private UUID inventoryBatchId;
 }

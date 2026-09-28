@@ -1,6 +1,7 @@
 package com.skr.erp.qr;
 
 import com.skr.erp.common.constants.ProductUnitStatus;
+import com.skr.erp.common.response.PageResponse;
 import com.skr.erp.entity.InventoryBatch;
 import com.skr.erp.entity.Product;
 import com.skr.erp.exception.BusinessException;
@@ -10,6 +11,8 @@ import com.skr.erp.qr.dto.ProductUnitResponse;
 import com.skr.erp.repository.InventoryBatchRepository;
 import com.skr.erp.repository.ProductMaterialCostRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -78,6 +81,20 @@ public class QrUnitServiceImpl implements QrUnitService {
     public List<ProductUnitResponse> listUnits(String batchNumber) {
         return productUnitRepository.findByBatchNumberOrderBySerialAsc(batchNumber)
                 .stream().map(this::toResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<ProductUnitResponse> listUnits(String batchNumber, Pageable pageable) {
+        Page<ProductUnit> page = productUnitRepository.findByBatchNumberOrderBySerialAsc(batchNumber, pageable);
+        return PageResponse.<ProductUnitResponse>builder()
+                .content(page.getContent().stream().map(this::toResponse).toList())
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .last(page.isLast())
+                .build();
     }
 
     @Override

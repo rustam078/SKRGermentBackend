@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +19,21 @@ public interface InventoryBatchRepository extends JpaRepository<InventoryBatch, 
     List<InventoryBatch> findByProductId(UUID productId);
 
     java.util.Optional<InventoryBatch> findByBatchNumber(String batchNumber);
+
+    @Query("""
+            SELECT b FROM InventoryBatch b
+            WHERE b.product.id = :productId
+            AND b.status = com.skr.erp.common.constants.InventoryBatchStatus.ACTIVE
+            AND b.source = 'MANUFACTURED'
+            AND b.unitCost = :unitCost
+            AND b.sellingPrice = :sellingPrice
+            ORDER BY b.receivedDate DESC, b.createdAt DESC
+            """)
+    List<InventoryBatch> findMergeableBatches(@Param("productId") UUID productId,
+                                              @Param("unitCost") BigDecimal unitCost,
+                                              @Param("sellingPrice") BigDecimal sellingPrice);
+
+    java.util.Optional<InventoryBatch> findFirstBySourceAndSourceId(String source, UUID sourceId);
 
     @Query(value = "SELECT nextval('inventory_batch_seq')", nativeQuery = true)
     Long getNextBatchSequence();
@@ -47,6 +63,20 @@ public interface InventoryBatchRepository extends JpaRepository<InventoryBatch, 
             ORDER BY b.createdAt DESC
             """)
     List<InventoryBatch> findAllByProductIdAndReceivedDateBetween(@Param("productId") UUID productId, @Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate);
+
+    @Query(value = "SELECT b FROM InventoryBatch b JOIN FETCH b.product WHERE b.product.id = :productId",
+            countQuery = "SELECT COUNT(b) FROM InventoryBatch b WHERE b.product.id = :productId")
+    Page<InventoryBatch> pageByProductId(@Param("productId") UUID productId, Pageable pageable);
+
+    @Query(value = "SELECT b FROM InventoryBatch b JOIN FETCH b.product WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate",
+            countQuery = "SELECT COUNT(b) FROM InventoryBatch b WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate")
+    Page<InventoryBatch> pageByProductIdAndReceivedDateBetween(@Param("productId") UUID productId, @Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate, Pageable pageable);
+
+    @Query("SELECT COALESCE(SUM(b.quantityReceived),0), COALESCE(SUM(b.quantityAvailable),0), COALESCE(SUM(b.quantityAvailable * b.unitCost),0) FROM InventoryBatch b WHERE b.product.id = :productId")
+    List<Object[]> aggregateByProductId(@Param("productId") UUID productId);
+
+    @Query("SELECT COALESCE(SUM(b.quantityReceived),0), COALESCE(SUM(b.quantityAvailable),0), COALESCE(SUM(b.quantityAvailable * b.unitCost),0) FROM InventoryBatch b WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate")
+    List<Object[]> aggregateByProductIdAndReceivedDateBetween(@Param("productId") UUID productId, @Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate);
 
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

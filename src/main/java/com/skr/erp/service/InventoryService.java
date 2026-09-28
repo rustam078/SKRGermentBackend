@@ -18,7 +18,9 @@ import com.skr.erp.repository.SystemSettingRepository;
 import com.skr.erp.util.BatchNumberGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,21 +60,56 @@ public class InventoryService {
     }
 
     @Transactional
-    public void createProductionBatch(ProductionEntryDetail productionDetail) {
-        InventoryBatch batch = new InventoryBatch();
-        batch.setBatchNumber(generateBatchNumber.generate());
-        batch.setProduct(productionDetail.getProduct());
-        batch.setSource(ProductSource.MANUFACTURED.name());
-        batch.setSourceId(productionDetail.getId());
-        batch.setReceivedDate(productionDetail.getProductionEntry().getProductionDate());
-        batch.setQuantityReceived(BigDecimal.valueOf(productionDetail.getQuantity()));
-        batch.setQuantityAvailable(BigDecimal.valueOf(productionDetail.getQuantity()));
-        // Temporary
-        BigDecimal materialCost = getMaterialCost(productionDetail.getProduct());
-        batch.setUnitCost(materialCost);
-        batch.setTotalCost(materialCost.multiply(BigDecimal.valueOf(productionDetail.getQuantity())));
-        batch.setStatus(InventoryBatchStatus.ACTIVE);
-        batch.setRemarks("Production Entry");
+    public UUID addProductionStock(ProductionEntryDetail productionDetail) {
+        Product product = productionDetail.getProduct();
+        BigDecimal qty = BigDecimal.valueOf(productionDetail.getQuantity());
+        BigDecimal unitCost = getMaterialCost(product);
+        BigDecimal sellingPrice = getCurrentSalePrice(product.getId());
+
+        InventoryBatch batch = null;
+        if (sellingPrice != null) {
+            batch = inventoryBatchRepository
+                    .findMergeableBatches(product.getId(), unitCost, sellingPrice)
+                    .stream().findFirst().orElse(null);
+        }
+
+        if (batch != null) {
+            batch.setQuantityReceived(batch.getQuantityReceived().add(qty));
+            batch.setQuantityAvailable(batch.getQuantityAvailable().add(qty));
+            batch.setTotalCost(batch.getQuantityReceived().multiply(unitCost));
+        } else {
+            batch = new InventoryBatch();
+            batch.setBatchNumber(generateBatchNumber.generate());
+            batch.setProduct(product);
+            batch.setSource(ProductSource.MANUFACTURED.name());
+            batch.setSourceId(productionDetail.getId());
+            batch.setReceivedDate(productionDetail.getProductionEntry().getProductionDate());
+            batch.setQuantityReceived(qty);
+            batch.setQuantityAvailable(qty);
+            batch.setUnitCost(unitCost);
+            batch.setSellingPrice(sellingPrice);
+            batch.setTotalCost(unitCost.multiply(qty));
+            batch.setStatus(InventoryBatchStatus.ACTIVE);
+            batch.setRemarks("Production Entry");
+        }
+        batch = inventoryBatchRepository.save(batch);
+        return batch.getId();
+    }
+
+    @Transactional
+    public void removeProductionStock(InventoryBatch batch, BigDecimal qty) {
+        BigDecimal newReceived = batch.getQuantityReceived().subtract(qty);
+        if (newReceived.compareTo(BigDecimal.ZERO) <= 0) {
+            qrUnitService.removeAvailableUnits(batch.getBatchNumber(), batch.getQuantityAvailable().intValue());
+            inventoryBatchRepository.delete(batch);
+            return;
+        }
+        BigDecimal newAvailable = batch.getQuantityAvailable().subtract(qty);
+        batch.setQuantityReceived(newReceived);
+        batch.setQuantityAvailable(newAvailable);
+        batch.setTotalCost(newReceived.multiply(batch.getUnitCost()));
+        batch.setStatus(newAvailable.compareTo(BigDecimal.ZERO) > 0 ? InventoryBatchStatus.ACTIVE : InventoryBatchStatus.SOLD);
+        qrUnitService.removeAvailableUnits(batch.getBatchNumber(), qty.intValue());
         inventoryBatchRepository.save(batch);
     }
 
@@ -134,7 +171,8 @@ public class InventoryService {
     }
 
 
-    public ProductInventoryDetailResponse getProductBatchDetails(UUID productId, LocalDate fromDate, LocalDate toDate) {
+    @Transactional(readOnly = true)
+    public ProductInventoryDetailResponse getProductBatchDetails(UUID productId, LocalDate fromDate, LocalDate toDate, Pageable pageable) {
 
         if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
             throw new BusinessException("fromDate cannot be after toDate");
@@ -142,46 +180,57 @@ public class InventoryService {
 
         Product product = productRepository.findById(productId).orElseThrow(() -> new BusinessException("Product not found"));
 
-        List<InventoryBatch> batches;
-        if (fromDate == null && toDate == null) {
-            batches = inventoryBatchRepository.findAllByProductId(productId);
-        } else {
-            LocalDate from = fromDate != null ? fromDate : LocalDate.of(1900, 1, 1);
-            LocalDate to = toDate != null ? toDate : LocalDate.of(9999, 12, 31);
-            batches = inventoryBatchRepository.findAllByProductIdAndReceivedDateBetween(productId, from, to);
-        }
+        boolean ranged = !(fromDate == null && toDate == null);
+        LocalDate from = fromDate != null ? fromDate : LocalDate.of(1900, 1, 1);
+        LocalDate to = toDate != null ? toDate : LocalDate.of(9999, 12, 31);
 
-        BigDecimal totalQuantity = BigDecimal.ZERO;
-        BigDecimal totalSold = BigDecimal.ZERO;
-        BigDecimal quantityAvailable = BigDecimal.ZERO;
-        BigDecimal totalValue = BigDecimal.ZERO;
+        Pageable sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "receivedDate").and(Sort.by(Sort.Direction.DESC, "createdAt")));
 
-        List<InventoryBatchResponse> batchResponses = new ArrayList<>();
+        List<Object[]> aggRows = ranged
+                ? inventoryBatchRepository.aggregateByProductIdAndReceivedDateBetween(productId, from, to)
+                : inventoryBatchRepository.aggregateByProductId(productId);
+        Object[] agg = aggRows.isEmpty() ? new Object[]{BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO} : aggRows.get(0);
+        BigDecimal totalQuantity = toBigDecimal(agg[0]);
+        BigDecimal quantityAvailable = toBigDecimal(agg[1]);
+        BigDecimal totalValue = toBigDecimal(agg[2]);
+        BigDecimal totalSold = totalQuantity.subtract(quantityAvailable);
 
-        for (InventoryBatch b : batches) {
+        Page<InventoryBatch> page = ranged
+                ? inventoryBatchRepository.pageByProductIdAndReceivedDateBetween(productId, from, to, sorted)
+                : inventoryBatchRepository.pageByProductId(productId, sorted);
 
+        List<InventoryBatchResponse> batchResponses = page.getContent().stream().map(b -> {
             BigDecimal batchValue = b.getQuantityAvailable().multiply(b.getUnitCost());
-            totalQuantity = totalQuantity.add(b.getQuantityReceived());
-            quantityAvailable = quantityAvailable.add(b.getQuantityAvailable());
-            totalValue = totalValue.add(batchValue);
-
-            batchResponses.add(InventoryBatchResponse.builder()
+            return InventoryBatchResponse.builder()
                     .batchId(b.getId()).batchNumber(b.getBatchNumber())
                     .source(ProductSource.valueOf(b.getSource()))
                     .receivedDate(b.getReceivedDate())
                     .totalQuantity(b.getQuantityReceived())
                     .quantityAvailable(b.getQuantityAvailable())
                     .unitCost(b.getUnitCost()).batchValue(batchValue)
-                    .status(b.getStatus().name()).build());
-        }
-        totalSold = totalQuantity.subtract(quantityAvailable);
+                    .status(b.getStatus().name()).build();
+        }).toList();
+
         return ProductInventoryDetailResponse.builder()
                 .productId(product.getId()).productName(product.getName())
                 .source(product.getSource()).totalQuantity(totalQuantity)
                 .totalSold(totalSold).quantityAvailable(quantityAvailable)
                 .totalValue(totalValue)
                 .averageCost(quantityAvailable.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO : totalValue.divide(quantityAvailable, 2, RoundingMode.HALF_UP))
-                .batches(batchResponses).build();
+                .batches(batchResponses)
+                .totalBatches(page.getTotalElements())
+                .batchPage(page.getNumber())
+                .batchPageSize(page.getSize())
+                .batchTotalPages(page.getTotalPages())
+                .batchLast(page.isLast())
+                .build();
+    }
+
+    private BigDecimal toBigDecimal(Object o) {
+        if (o == null) return BigDecimal.ZERO;
+        if (o instanceof BigDecimal bd) return bd;
+        return new BigDecimal(o.toString());
     }
 
     @Transactional

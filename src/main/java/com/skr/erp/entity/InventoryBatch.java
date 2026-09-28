@@ -41,6 +41,9 @@ public class InventoryBatch extends BaseEntity {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal unitCost;
 
+    @Column(name = "selling_price", precision = 12, scale = 2)
+    private BigDecimal sellingPrice;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal totalCost;
 

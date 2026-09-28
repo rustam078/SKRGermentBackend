@@ -1,6 +1,8 @@
 package com.skr.erp.qr;
 
 import com.skr.erp.common.constants.ProductUnitStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,6 +16,8 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, UUID> 
     Optional<ProductUnit> findBySerial(String serial);
 
     List<ProductUnit> findByBatchNumberOrderBySerialAsc(String batchNumber);
+
+    Page<ProductUnit> findByBatchNumberOrderBySerialAsc(String batchNumber, Pageable pageable);
 
     /** AVAILABLE units of a batch, newest serial first — used to trim labels when stock is reduced. */
     List<ProductUnit> findByBatchNumberAndStatusOrderBySerialDesc(String batchNumber, ProductUnitStatus status);

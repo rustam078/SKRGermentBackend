@@ -1,3 +1,0 @@
-CREATE SEQUENCE inventory_batch_seq
-START WITH 1
-INCREMENT BY 1;

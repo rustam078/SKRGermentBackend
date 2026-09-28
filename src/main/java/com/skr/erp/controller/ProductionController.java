@@ -1,19 +1,21 @@
 package com.skr.erp.controller;
 
 import com.skr.erp.common.response.CommonResponse;
+import com.skr.erp.common.response.PageResponse;
 import com.skr.erp.dto.request.CreateProductionRequest;
 import com.skr.erp.dto.response.ProductionDetailsResponse;
 import com.skr.erp.dto.response.ProductionResponse;
 import com.skr.erp.service.ProductionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -33,15 +35,18 @@ public class ProductionController {
 
 
     @GetMapping
-    public CommonResponse<List<ProductionResponse>> search(
+    public CommonResponse<PageResponse<ProductionResponse>> search(
             @RequestParam(required = false) LocalDate fromDate,
             @RequestParam(required = false) LocalDate toDate,
             @RequestParam(required = false) UUID employeeId,
-            @RequestParam(required = false) UUID productId) {
+            @RequestParam(required = false) UUID productId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
 
-        return CommonResponse.<List<ProductionResponse>>builder().success(true)
+        Pageable pageable = PageRequest.of(page, size);
+        return CommonResponse.<PageResponse<ProductionResponse>>builder().success(true)
                 .message("Production entries fetched successfully")
-                .data(productionService.search(fromDate, toDate, employeeId, productId))
+                .data(productionService.search(fromDate, toDate, employeeId, productId, pageable))
                 .build();
     }
 

@@ -1,12 +1,14 @@
 package com.skr.erp.qr;
 
 import com.skr.erp.common.response.CommonResponse;
+import com.skr.erp.common.response.PageResponse;
 import com.skr.erp.qr.dto.GenerateUnitsRequest;
 import com.skr.erp.qr.dto.GenerateUnitsResponse;
 import com.skr.erp.qr.dto.ProductUnitResponse;
 import com.skr.erp.qr.dto.ScanRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -39,6 +41,18 @@ public class QrUnitController {
                 .success(true)
                 .message("Units fetched successfully")
                 .data(qrUnitService.listUnits(batchNumber))
+                .build();
+    }
+
+    @GetMapping("/batches/{batchNumber}/units/page")
+    public CommonResponse<PageResponse<ProductUnitResponse>> listPaged(
+            @PathVariable String batchNumber,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return CommonResponse.<PageResponse<ProductUnitResponse>>builder()
+                .success(true)
+                .message("Units fetched successfully")
+                .data(qrUnitService.listUnits(batchNumber, PageRequest.of(page, size)))
                 .build();
     }
 

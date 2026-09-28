@@ -21,4 +21,10 @@ public class ProductInventoryDetailResponse {
     private BigDecimal totalValue;
     private BigDecimal averageCost;
     private List<InventoryBatchResponse> batches;
+
+    private long totalBatches;
+    private int batchPage;
+    private int batchPageSize;
+    private int batchTotalPages;
+    private boolean batchLast;
 }

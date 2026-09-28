@@ -5,12 +5,18 @@ import com.skr.erp.dto.request.ProductionItemRequest;
 import com.skr.erp.dto.response.ProductionDetailsResponse;
 import com.skr.erp.dto.response.ProductionItemResponse;
 import com.skr.erp.dto.response.ProductionResponse;
+import com.skr.erp.common.response.PageResponse;
 import com.skr.erp.entity.*;
 import com.skr.erp.exception.BusinessException;
 import com.skr.erp.pdf.HtmlToPdfGenerator;
 import com.skr.erp.pdf.ProductionExcelGenerator;
 import com.skr.erp.repository.*;
+import com.skr.erp.specification.ProductionSpecification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,8 +25,10 @@ import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -35,6 +43,7 @@ public class ProductionService {
     private final ProductRateRepository productRateRepository;
     private final ProductPieceCodeRepository productPieceCodeRepository;
     private final InventoryService inventoryService;
+    private final InventoryBatchRepository inventoryBatchRepository;
     private final SystemSettingRepository systemSettingRepository;
 
     public ProductionResponse create(CreateProductionRequest request) {
@@ -84,7 +93,8 @@ public class ProductionService {
 
     private void createInventoryBatch(ProductionEntry productionEntry) {
         for (ProductionEntryDetail detail : productionEntry.getDetails()) {
-            inventoryService.createProductionBatch(detail);
+            UUID batchId = inventoryService.addProductionStock(detail);
+            detail.setInventoryBatchId(batchId);
         }
     }
 
@@ -147,21 +157,66 @@ public class ProductionService {
     }
 
     public void delete(UUID productionId) {
-        ProductionEntry productionEntry = productionEntryRepository.findById(productionId).orElseThrow(() -> new BusinessException("Production entry not found"));
+        ProductionEntry productionEntry = productionEntryRepository.findById(productionId)
+                .orElseThrow(() -> new BusinessException("Production entry not found"));
+
+        Map<UUID, BigDecimal> needByBatch = new LinkedHashMap<>();
+        for (ProductionEntryDetail detail : productionEntry.getDetails()) {
+            InventoryBatch batch = resolveBatch(detail);
+            if (batch == null) continue;
+            needByBatch.merge(batch.getId(), BigDecimal.valueOf(detail.getQuantity()), BigDecimal::add);
+        }
+
+        for (Map.Entry<UUID, BigDecimal> e : needByBatch.entrySet()) {
+            InventoryBatch batch = inventoryBatchRepository.findById(e.getKey()).orElse(null);
+            if (batch == null) continue;
+            if (batch.getQuantityAvailable().compareTo(e.getValue()) < 0) {
+                BigDecimal sold = e.getValue().subtract(batch.getQuantityAvailable());
+                throw new BusinessException("Can't delete — " + sold.stripTrailingZeros().toPlainString()
+                        + " piece(s) of '" + batch.getProduct().getName() + "' from batch " + batch.getBatchNumber()
+                        + " are already sold. Sold stock can't be reversed.");
+            }
+        }
+
+        for (Map.Entry<UUID, BigDecimal> e : needByBatch.entrySet()) {
+            inventoryBatchRepository.findById(e.getKey())
+                    .ifPresent(batch -> inventoryService.removeProductionStock(batch, e.getValue()));
+        }
         productionEntryRepository.delete(productionEntry);
+    }
+
+    private InventoryBatch resolveBatch(ProductionEntryDetail detail) {
+        if (detail.getInventoryBatchId() != null) {
+            return inventoryBatchRepository.findById(detail.getInventoryBatchId()).orElse(null);
+        }
+        return inventoryBatchRepository.findFirstBySourceAndSourceId("MANUFACTURED", detail.getId()).orElse(null);
     }
 
 
     @Transactional(readOnly = true)
-    public List<ProductionResponse> search(LocalDate fromDate, LocalDate toDate, UUID employeeId, UUID productId) {
+    public PageResponse<ProductionResponse> search(LocalDate fromDate, LocalDate toDate,
+                                                   UUID employeeId, UUID productId, Pageable pageable) {
 
-        return productionEntryRepository.findAll().stream()
-                .filter(entry -> fromDate == null || !entry.getProductionDate().isBefore(fromDate))
-                .filter(entry -> toDate == null || !entry.getProductionDate().isAfter(toDate))
-                .filter(entry -> employeeId == null || entry.getEmployee().getId().equals(employeeId))
-                .filter(entry -> productId == null || entry.getDetails().stream().anyMatch(detail -> detail.getProduct().getId().equals(productId)))
-                .map(this::map)
-                .toList();
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+            throw new BusinessException("fromDate cannot be after toDate");
+        }
+
+        Pageable sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "productionDate").and(Sort.by(Sort.Direction.DESC, "createdAt")));
+
+        Page<ProductionEntry> page = productionEntryRepository.findAll(
+                ProductionSpecification.filter(fromDate, toDate, employeeId, productId), sorted);
+
+        List<ProductionResponse> content = page.getContent().stream().map(this::map).toList();
+
+        return PageResponse.<ProductionResponse>builder()
+                .content(content)
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .last(page.isLast())
+                .build();
     }
 
     public byte[] exportPdf(UUID productionId) {
