@@ -48,6 +48,11 @@ public class PermissionInterceptor implements HandlerInterceptor {
             return true;
         }
 
+        // Company name is public (shown on the login page before sign-in). Not sensitive.
+        if ("GET".equalsIgnoreCase(method) && path.equals("/api/settings/COMPANY_NAME")) {
+            return true;
+        }
+
         AppUser user = resolveUser(request);
 
         // ADMIN has full access.
