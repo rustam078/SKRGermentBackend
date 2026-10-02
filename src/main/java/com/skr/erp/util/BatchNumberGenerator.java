@@ -8,8 +8,16 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class BatchNumberGenerator {
     private final InventoryBatchRepository inventoryBatchRepository;
+
+    // DB sequence drives the number, but we reconcile with real data so a lagging
+    // sequence (fresh import, restore, manual/seed insert) can never cause a duplicate.
     public String generate() {
-        Long sequence = inventoryBatchRepository.getNextBatchSequence();
-        return String.format("BT%06d", sequence);
+        long sequence = inventoryBatchRepository.getNextBatchSequence();
+        long maxInData = inventoryBatchRepository.getMaxBatchNumberValue();
+        long chosen = Math.max(sequence, maxInData + 1);
+        if (chosen > sequence) {
+            inventoryBatchRepository.resetBatchSequence(chosen);
+        }
+        return String.format("BT%06d", chosen);
     }
 }

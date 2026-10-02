@@ -5,6 +5,8 @@ import com.skr.erp.common.constants.PaymentStatus;
 import com.skr.erp.common.response.PageResponse;
 import com.skr.erp.dto.request.CreateSaleOrderRequest;
 import com.skr.erp.dto.response.*;
+import com.skr.erp.report.ReportDownload;
+import com.skr.erp.service.ReportService;
 import com.skr.erp.service.SalesService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,10 +27,11 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/sales")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*", exposedHeaders = "Content-Disposition")
 public class SalesController {
 
     private final SalesService salesService;
+    private final ReportService reportService;
 
     @GetMapping
     public ResponseEntity<PageResponse<SalesListResponse>> getSales(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size, @RequestParam(required = false) String search,
@@ -82,5 +85,19 @@ public class SalesController {
         byte[] pdf = salesService.exportInvoicePdf(saleId);
         return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=invoice-" + saleId + ".pdf")
                 .contentType(MediaType.APPLICATION_PDF).body(pdf);
+    }
+
+    @GetMapping("/report/pdf")
+    public ResponseEntity<byte[]> reportPdf(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+                                            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        return ReportDownload.pdf(reportService.salesPdf(fromDate, toDate),
+                "sales_" + reportService.fileToken(fromDate, toDate) + ".pdf");
+    }
+
+    @GetMapping("/report/excel")
+    public ResponseEntity<byte[]> reportExcel(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+                                              @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        return ReportDownload.excel(reportService.salesExcel(fromDate, toDate),
+                "sales_" + reportService.fileToken(fromDate, toDate) + ".xlsx");
     }
 }

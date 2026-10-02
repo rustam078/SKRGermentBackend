@@ -10,6 +10,7 @@ import com.skr.erp.entity.ProductionEntryDetail;
 import com.skr.erp.exception.BusinessException;
 import com.skr.erp.repository.EmployeeRepository;
 import com.skr.erp.repository.ProductRateRepository;
+import com.skr.erp.repository.ProductionEntryDetailRepository;
 import com.skr.erp.repository.ProductionEntryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final ProductionEntryRepository productionEntryRepository;
+    private final ProductionEntryDetailRepository productionEntryDetailRepository;
     private final ProductRateRepository productRateRepository;
 
     public EmployeeResponse create(CreateEmployeeRequest request) {
@@ -46,25 +48,35 @@ public class EmployeeService {
         return map(employee);
     }
 
+    @Transactional(readOnly = true)
     public List<EmployeeResponse> getAll() {
-        return employeeRepository.findAll().stream().map(this::map).toList();
+        YearMonth ym = YearMonth.now();
+        Map<UUID, BigDecimal> totalByEmp = toEarningMap(productionEntryDetailRepository.sumEarningGroupedByEmployee());
+        Map<UUID, BigDecimal> monthByEmp = toEarningMap(productionEntryDetailRepository.sumEarningGroupedByEmployeeBetween(ym.atDay(1), ym.atEndOfMonth()));
+        return employeeRepository.findAll().stream()
+                .map(e -> toResponse(e,
+                        monthByEmp.getOrDefault(e.getId(), BigDecimal.ZERO),
+                        totalByEmp.getOrDefault(e.getId(), BigDecimal.ZERO)))
+                .toList();
     }
 
+    private Map<UUID, BigDecimal> toEarningMap(List<Object[]> rows) {
+        Map<UUID, BigDecimal> m = new HashMap<>();
+        for (Object[] r : rows) {
+            m.put((UUID) r[0], r[1] == null ? BigDecimal.ZERO : (BigDecimal) r[1]);
+        }
+        return m;
+    }
+
+    // Single-employee earnings via indexed SUM queries (no full-table scan).
     private EmployeeResponse map(Employee employee) {
-        YearMonth currentMonth = YearMonth.now();
-        BigDecimal currentMonthEarning = productionEntryRepository.findAll().stream()
-                .filter(entry -> entry.getEmployee().getId().equals(employee.getId()))
-                .filter(entry -> YearMonth.from(entry.getProductionDate()).equals(currentMonth))
-                .flatMap(entry -> entry.getDetails().stream())
-                .map(detail -> detail.getAmountSnapshot() == null ? BigDecimal.ZERO : detail.getAmountSnapshot())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        YearMonth ym = YearMonth.now();
+        BigDecimal month = productionEntryDetailRepository.sumEarningByEmployeeBetween(employee.getId(), ym.atDay(1), ym.atEndOfMonth());
+        BigDecimal total = productionEntryDetailRepository.sumEarningByEmployee(employee.getId());
+        return toResponse(employee, month, total);
+    }
 
-        BigDecimal totalEarning = productionEntryRepository.findAll().stream()
-                .filter(entry -> entry.getEmployee().getId().equals(employee.getId()))
-                .flatMap(entry -> entry.getDetails().stream())
-                .map(detail -> detail.getAmountSnapshot() == null ? BigDecimal.ZERO : detail.getAmountSnapshot())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
+    private EmployeeResponse toResponse(Employee employee, BigDecimal currentMonthEarning, BigDecimal totalEarning) {
         return EmployeeResponse.builder()
                 .id(employee.getId())
                 .employeeCode(employee.getEmployeeCode())
@@ -77,7 +89,6 @@ public class EmployeeService {
                 .currentMonthEarning(currentMonthEarning)
                 .totalEarning(totalEarning)
                 .build();
-
     }
 
 
@@ -113,7 +124,7 @@ public class EmployeeService {
     @Transactional(readOnly = true)
     public EmployeeDetailsResponse getDetails(UUID employeeId, LocalDate fromDate, LocalDate toDate) {
         Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new BusinessException("Employee not found"));
-        List<ProductionEntry> entries = productionEntryRepository.findAll().stream().filter(entry -> entry.getEmployee().getId().equals(employeeId)).filter(entry -> fromDate == null || !entry.getProductionDate().isBefore(fromDate)).filter(entry -> toDate == null || !entry.getProductionDate().isAfter(toDate)).toList();
+        List<ProductionEntry> entries = productionEntryRepository.findByEmployeeWithDetails(employeeId, fromDate, toDate);
 
         int totalQty = 0;
         BigDecimal totalEarnings = BigDecimal.ZERO;
@@ -142,6 +153,10 @@ public class EmployeeService {
                 history.add(EmployeeProductionHistoryResponse.builder().productionDate(entry.getProductionDate()).productName(detail.getProductNameSnapshot()).quantity(detail.getQuantity()).rate(rate).earnings(earning).build());
             }
         }
+
+        // Latest production date first (used by both the table and the employee report).
+        history.sort(Comparator.comparing(EmployeeProductionHistoryResponse::getProductionDate,
+                Comparator.nullsLast(Comparator.reverseOrder())));
 
         List<EmployeeCurrentMonthProductResponse> currentMonthProductSummary = entries.stream()
                         .filter(entry -> YearMonth.from(entry.getProductionDate()).equals(currentMonth))
@@ -180,16 +195,8 @@ public class EmployeeService {
         Long activeEmployees = employees.stream().filter(Employee::getActive).count();
         Long inactiveEmployees = totalEmployees - activeEmployees;
         YearMonth currentMonth = YearMonth.now();
-        BigDecimal currentMonthTotal = productionEntryRepository.findAll().stream()
-                .filter(entry -> YearMonth.from(entry.getProductionDate()).equals(currentMonth))
-                .flatMap(entry -> entry.getDetails().stream())
-                .map(detail -> detail.getAmountSnapshot() == null ? BigDecimal.ZERO : detail.getAmountSnapshot())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal overallTotal = productionEntryRepository.findAll().stream()
-                .flatMap(entry -> entry.getDetails().stream())
-                .map(detail -> detail.getAmountSnapshot() == null ? BigDecimal.ZERO : detail.getAmountSnapshot())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal currentMonthTotal = productionEntryDetailRepository.sumAllEarningBetween(currentMonth.atDay(1), currentMonth.atEndOfMonth());
+        BigDecimal overallTotal = productionEntryDetailRepository.sumAllEarning();
 
         return EmployeeStatsResponse.builder()
                 .totalEmployees(totalEmployees)

@@ -87,4 +87,18 @@ public interface SalesOrderItemRepository extends JpaRepository<SalesOrderItem, 
             @Param("start") java.time.LocalDateTime start,
             @Param("end") java.time.LocalDateTime end,
             Pageable pageable);
+
+    // Per-product sales for a date range (report): product, qty, revenue, profit.
+    @Query("""
+            SELECT i.product.name, SUM(i.quantity), COALESCE(SUM(i.lineTotal), 0),
+                   COALESCE(SUM(i.lineTotal - (i.unitPrice * i.quantity)), 0)
+            FROM SalesOrderItem i
+            WHERE i.salesOrder.createdAt >= :start AND i.salesOrder.createdAt < :end
+            GROUP BY i.product.id, i.product.name
+            ORDER BY SUM(i.lineTotal) DESC
+            """)
+    List<Object[]> salesByProductBetween(
+            @Param("start") java.time.LocalDateTime start,
+            @Param("end") java.time.LocalDateTime end,
+            Pageable pageable);
 }

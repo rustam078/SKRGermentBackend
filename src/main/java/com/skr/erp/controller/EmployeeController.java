@@ -8,9 +8,12 @@ import com.skr.erp.dto.response.EmployeeCalendarResponse;
 import com.skr.erp.dto.response.EmployeeDetailsResponse;
 import com.skr.erp.dto.response.EmployeeResponse;
 import com.skr.erp.dto.response.EmployeeStatsResponse;
+import com.skr.erp.report.ReportDownload;
 import com.skr.erp.service.EmployeeService;
+import com.skr.erp.service.ReportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -20,10 +23,11 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/employees")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*", exposedHeaders = "Content-Disposition")
 public class EmployeeController {
 
     private final EmployeeService employeeService;
+    private final ReportService reportService;
 
     @PostMapping
     public CommonResponse<EmployeeResponse> create(@Valid @RequestBody CreateEmployeeRequest request) {
@@ -81,6 +85,20 @@ public class EmployeeController {
                 .message("Employee statistics fetched successfully")
                 .data(employeeService.getStats()).build();
 
+    }
+
+    @GetMapping("/{id}/report/pdf")
+    public ResponseEntity<byte[]> reportPdf(@PathVariable UUID id,
+                                            @RequestParam LocalDate fromDate, @RequestParam LocalDate toDate) {
+        return ReportDownload.pdf(reportService.employeePdf(id, fromDate, toDate),
+                "employee_" + reportService.fileToken(fromDate, toDate) + ".pdf");
+    }
+
+    @GetMapping("/{id}/report/excel")
+    public ResponseEntity<byte[]> reportExcel(@PathVariable UUID id,
+                                              @RequestParam LocalDate fromDate, @RequestParam LocalDate toDate) {
+        return ReportDownload.excel(reportService.employeeExcel(id, fromDate, toDate),
+                "employee_" + reportService.fileToken(fromDate, toDate) + ".xlsx");
     }
 
     @GetMapping("/{employeeId}/calendar")

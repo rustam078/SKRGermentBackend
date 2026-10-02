@@ -5,7 +5,10 @@ import com.skr.erp.common.response.PageResponse;
 import com.skr.erp.dto.request.CreateProductionRequest;
 import com.skr.erp.dto.response.ProductionDetailsResponse;
 import com.skr.erp.dto.response.ProductionResponse;
+import com.skr.erp.dto.response.ProductionStatsResponse;
+import com.skr.erp.report.ReportDownload;
 import com.skr.erp.service.ProductionService;
+import com.skr.erp.service.ReportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -21,10 +24,11 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/production")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*", exposedHeaders = "Content-Disposition")
 public class ProductionController {
 
     private final ProductionService productionService;
+    private final ReportService reportService;
 
     @PostMapping
     public CommonResponse<ProductionResponse> create(@Valid @RequestBody CreateProductionRequest request) {
@@ -48,6 +52,17 @@ public class ProductionController {
                 .message("Production entries fetched successfully")
                 .data(productionService.search(fromDate, toDate, employeeId, productId, pageable))
                 .build();
+    }
+
+    @GetMapping("/stats")
+    public CommonResponse<ProductionStatsResponse> getStats(
+            @RequestParam(required = false) LocalDate fromDate,
+            @RequestParam(required = false) LocalDate toDate,
+            @RequestParam(required = false) UUID employeeId,
+            @RequestParam(required = false) UUID productId) {
+        return CommonResponse.<ProductionStatsResponse>builder().success(true)
+                .message("Production stats fetched successfully")
+                .data(productionService.getStats(fromDate, toDate, employeeId, productId)).build();
     }
 
     @GetMapping("/{id}")
@@ -83,5 +98,17 @@ public class ProductionController {
         return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=production-report.xlsx")
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(excel);
+    }
+
+    @GetMapping("/report/pdf")
+    public ResponseEntity<byte[]> reportPdf(@RequestParam LocalDate fromDate, @RequestParam LocalDate toDate) {
+        return ReportDownload.pdf(reportService.productionPdf(fromDate, toDate),
+                "production_" + reportService.fileToken(fromDate, toDate) + ".pdf");
+    }
+
+    @GetMapping("/report/excel")
+    public ResponseEntity<byte[]> reportExcel(@RequestParam LocalDate fromDate, @RequestParam LocalDate toDate) {
+        return ReportDownload.excel(reportService.productionExcel(fromDate, toDate),
+                "production_" + reportService.fileToken(fromDate, toDate) + ".xlsx");
     }
 }

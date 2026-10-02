@@ -5,6 +5,7 @@ import com.skr.erp.common.response.PageResponse;
 import com.skr.erp.entity.InventoryBatch;
 import com.skr.erp.entity.Product;
 import com.skr.erp.exception.BusinessException;
+import com.skr.erp.qr.dto.BatchLabelSummary;
 import com.skr.erp.qr.dto.GenerateUnitsRequest;
 import com.skr.erp.qr.dto.GenerateUnitsResponse;
 import com.skr.erp.qr.dto.ProductUnitResponse;
@@ -28,6 +29,9 @@ import java.util.UUID;
 @Transactional
 public class QrUnitServiceImpl implements QrUnitService {
 
+    // Labels are generated/printed in bounded runs, so one request never handles more than this many.
+    private static final int MAX_LABELS_PER_REQUEST = 2000;
+
     private final ProductUnitRepository productUnitRepository;
     private final InventoryBatchRepository inventoryBatchRepository;
     private final ProductMaterialCostRepository productMaterialCostRepository;
@@ -43,16 +47,25 @@ public class QrUnitServiceImpl implements QrUnitService {
             throw new BusinessException("Set a sale price for " + product.getName() + " before generating QR labels.");
         }
 
-        int received = batch.getQuantityReceived().intValue();
-        long existing = productUnitRepository.countByBatchNumber(batchNumber);
+        // Only unsold (available) stock can be labelled — never the full received quantity.
+        int stock = batch.getQuantityAvailable().intValue();
+        long availableLabels = productUnitRepository.countByBatchNumberAndStatus(batchNumber, ProductUnitStatus.AVAILABLE);
+        int remaining = (int) Math.max(0, stock - availableLabels);
 
-        int toGenerate = request != null && request.getCount() != null ? request.getCount() : (int) (received - existing);
+        // Blank count means "a full run", capped — not the whole stock at once.
+        int toGenerate = request != null && request.getCount() != null ? request.getCount() : Math.min(remaining, MAX_LABELS_PER_REQUEST);
 
-        if (toGenerate <= 0) {
-            throw new BusinessException("All pieces of this batch are already labelled.");
+        if (remaining <= 0) {
+            throw new BusinessException("All available pieces of this batch are already labelled.");
         }
-        if (existing + toGenerate > received) {
-            throw new BusinessException("Cannot label more than " + received + " pieces in this batch (" + existing + " already labelled).");
+        if (toGenerate <= 0) {
+            throw new BusinessException("Enter how many labels to generate.");
+        }
+        if (toGenerate > MAX_LABELS_PER_REQUEST) {
+            throw new BusinessException("You can generate at most " + MAX_LABELS_PER_REQUEST + " labels at a time. Enter a smaller number and print in runs.");
+        }
+        if (toGenerate > remaining) {
+            throw new BusinessException("Only " + remaining + " available piece(s) left to label in this batch.");
         }
 
         int startIndex = productUnitRepository.maxSerialIndex(batchNumber) + 1;
@@ -78,6 +91,39 @@ public class QrUnitServiceImpl implements QrUnitService {
 
     @Override
     @Transactional(readOnly = true)
+    public BatchLabelSummary summary(String batchNumber) {
+        InventoryBatch batch = inventoryBatchRepository.findByBatchNumber(batchNumber)
+                               .orElseThrow(() -> new BusinessException("Batch " + batchNumber + " not found."));
+        int stock = batch.getQuantityAvailable().intValue();
+        long availableLabels = productUnitRepository.countByBatchNumberAndStatus(batchNumber, ProductUnitStatus.AVAILABLE);
+        return BatchLabelSummary.builder()
+                .batchNumber(batchNumber)
+                .received(batch.getQuantityReceived().intValue())
+                .stock(stock)
+                .totalLabelled(productUnitRepository.countByBatchNumber(batchNumber))
+                .availableLabels(availableLabels)
+                .sold(productUnitRepository.countByBatchNumberAndStatus(batchNumber, ProductUnitStatus.SOLD))
+                .voidCount(productUnitRepository.countByBatchNumberAndStatus(batchNumber, ProductUnitStatus.VOID))
+                .remaining(Math.max(0, stock - availableLabels))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductUnitResponse> rangeUnits(String batchNumber, int from, int to) {
+        int start = Math.max(1, from);
+        if (to < start) {
+            throw new BusinessException("'To' must be greater than or equal to 'From'.");
+        }
+        if (to - start + 1 > MAX_LABELS_PER_REQUEST) {
+            throw new BusinessException("You can print at most " + MAX_LABELS_PER_REQUEST + " labels at a time.");
+        }
+        return productUnitRepository.findByBatchNumberAndSerialIndexBetween(batchNumber, start, to)
+                .stream().map(this::toResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<ProductUnitResponse> listUnits(String batchNumber) {
         return productUnitRepository.findByBatchNumberOrderBySerialAsc(batchNumber)
                 .stream().map(this::toResponse).toList();
@@ -86,7 +132,20 @@ public class QrUnitServiceImpl implements QrUnitService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<ProductUnitResponse> listUnits(String batchNumber, Pageable pageable) {
-        Page<ProductUnit> page = productUnitRepository.findByBatchNumberOrderBySerialAsc(batchNumber, pageable);
+        return toPageResponse(productUnitRepository.findByBatchNumberOrderBySerialAsc(batchNumber, pageable));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<ProductUnitResponse> searchUnits(String batchNumber, String serial, Pageable pageable) {
+        String term = serial == null ? "" : serial.trim();
+        if (term.isEmpty()) {
+            return listUnits(batchNumber, pageable);
+        }
+        return toPageResponse(productUnitRepository.findByBatchNumberAndSerialContainingIgnoreCaseOrderBySerialAsc(batchNumber, term, pageable));
+    }
+
+    private PageResponse<ProductUnitResponse> toPageResponse(Page<ProductUnit> page) {
         return PageResponse.<ProductUnitResponse>builder()
                 .content(page.getContent().stream().map(this::toResponse).toList())
                 .page(page.getNumber())

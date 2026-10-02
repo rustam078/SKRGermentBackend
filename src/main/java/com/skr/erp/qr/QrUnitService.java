@@ -1,6 +1,7 @@
 package com.skr.erp.qr;
 
 import com.skr.erp.common.response.PageResponse;
+import com.skr.erp.qr.dto.BatchLabelSummary;
 import com.skr.erp.qr.dto.GenerateUnitsRequest;
 import com.skr.erp.qr.dto.GenerateUnitsResponse;
 import com.skr.erp.qr.dto.ProductUnitResponse;
@@ -12,8 +13,12 @@ import java.util.UUID;
 public interface QrUnitService {
 
     GenerateUnitsResponse generateUnits(String batchNumber, GenerateUnitsRequest request);
+    BatchLabelSummary summary(String batchNumber);
     List<ProductUnitResponse> listUnits(String batchNumber);
     PageResponse<ProductUnitResponse> listUnits(String batchNumber, Pageable pageable);
+    PageResponse<ProductUnitResponse> searchUnits(String batchNumber, String serial, Pageable pageable);
+    /** Existing labels whose serial index is in [from, to] — to print/reprint a specific chunk. */
+    List<ProductUnitResponse> rangeUnits(String batchNumber, int from, int to);
     ProductUnitResponse scanLookup(String code);
     ProductUnitResponse voidUnit(String serial);
     /**

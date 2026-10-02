@@ -5,6 +5,7 @@ import com.skr.erp.dto.request.ProductionItemRequest;
 import com.skr.erp.dto.response.ProductionDetailsResponse;
 import com.skr.erp.dto.response.ProductionItemResponse;
 import com.skr.erp.dto.response.ProductionResponse;
+import com.skr.erp.dto.response.ProductionStatsResponse;
 import com.skr.erp.common.response.PageResponse;
 import com.skr.erp.entity.*;
 import com.skr.erp.exception.BusinessException;
@@ -24,6 +25,7 @@ import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,6 +40,7 @@ public class ProductionService {
 
     private static final String PRODUCTION_PDF_TEMPLATE_KEY = "PRODUCTION_PDF_TEMPLATE";
     private final ProductionEntryRepository productionEntryRepository;
+    private final ProductionEntryDetailRepository productionEntryDetailRepository;
     private final EmployeeRepository employeeRepository;
     private final ProductRepository productRepository;
     private final ProductRateRepository productRateRepository;
@@ -217,6 +220,34 @@ public class ProductionService {
                 .totalPages(page.getTotalPages())
                 .last(page.isLast())
                 .build();
+    }
+
+    // Summary-card KPIs so the list can paginate server-side without loading every row.
+    @Transactional(readOnly = true)
+    public ProductionStatsResponse getStats(LocalDate fromDate, LocalDate toDate, UUID employeeId, UUID productId) {
+        Object[] totals = productionEntryDetailRepository.productionStats(fromDate, toDate, employeeId, productId).get(0);
+        LocalDate today = LocalDate.now();
+        Object[] todayRow = productionEntryDetailRepository.productionStats(today, today, employeeId, productId).get(0);
+        YearMonth month = YearMonth.now();
+        Object[] monthRow = productionEntryDetailRepository.productionStats(month.atDay(1), month.atEndOfMonth(), employeeId, productId).get(0);
+
+        return ProductionStatsResponse.builder()
+                .totalEntries(asLong(totals[0]))
+                .totalQuantity(asLong(totals[1]))
+                .totalAmount(asBig(totals[2]))
+                .todayQuantity(asLong(todayRow[1]))
+                .todayAmount(asBig(todayRow[2]))
+                .monthQuantity(asLong(monthRow[1]))
+                .monthAmount(asBig(monthRow[2]))
+                .build();
+    }
+
+    private long asLong(Object o) {
+        return o == null ? 0L : ((Number) o).longValue();
+    }
+
+    private BigDecimal asBig(Object o) {
+        return o == null ? BigDecimal.ZERO : (BigDecimal) o;
     }
 
     public byte[] exportPdf(UUID productionId) {

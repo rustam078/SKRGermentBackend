@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDate;
 
@@ -12,6 +13,7 @@ import java.time.LocalDate;
 @Table(name = "employee")
 @Getter
 @Setter
+@BatchSize(size = 100)
 public class Employee extends BaseEntity {
 
     @Column(name = "employee_code", nullable = false, unique = true)
