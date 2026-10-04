@@ -53,6 +53,11 @@ public class InventoryService {
         batch.setQuantityReceived(investmentItem.getQuantity());
         batch.setQuantityAvailable(investmentItem.getQuantity());
         batch.setUnitCost(investmentItem.getRate());
+        // Selling price for this lot: the entered MRP, else the product's default sale price.
+        BigDecimal sellingPrice = investmentItem.getSellingPrice() != null
+                ? investmentItem.getSellingPrice()
+                : getCurrentSalePrice(investmentItem.getProduct().getId());
+        batch.setSellingPrice(sellingPrice);
         batch.setTotalCost(investmentItem.getTotalAmount());
         batch.setStatus(InventoryBatchStatus.ACTIVE);
         batch.setRemarks("Purchase Entry");
@@ -209,6 +214,7 @@ public class InventoryService {
                     .totalQuantity(b.getQuantityReceived())
                     .quantityAvailable(b.getQuantityAvailable())
                     .unitCost(b.getUnitCost()).batchValue(batchValue)
+                    .sellingPrice(b.getSellingPrice() != null ? b.getSellingPrice() : getCurrentSalePrice(b.getProduct().getId()))
                     .status(b.getStatus().name()).build();
         }).toList();
 
@@ -288,6 +294,7 @@ public class InventoryService {
                 .source(ProductSource.valueOf(batch.getSource()))
                 .receivedDate(batch.getReceivedDate()).totalQuantity(newReceived)
                 .quantityAvailable(newAvailable).unitCost(batch.getUnitCost())
+                .sellingPrice(batch.getSellingPrice() != null ? batch.getSellingPrice() : getCurrentSalePrice(batch.getProduct().getId()))
                 .batchValue(batchValue).status(batch.getStatus().name()).build();
     }
 

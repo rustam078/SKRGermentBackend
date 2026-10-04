@@ -7,6 +7,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * A single payment made against an investment invoice (date + mode + amount).
@@ -30,4 +31,8 @@ public class InvestmentPayment extends BaseEntity {
 
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal amount;
+
+    // Same id across the rows created by one payment (so an allocation can be traced).
+    @Column(name = "payment_group_id")
+    private UUID paymentGroupId;
 }

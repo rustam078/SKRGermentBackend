@@ -7,6 +7,7 @@ import com.skr.erp.dto.request.CreateInvestmentRequest;
 import com.skr.erp.dto.response.InvestmentDetailsResponse;
 import com.skr.erp.dto.response.InvestmentPaymentResponse;
 import com.skr.erp.dto.response.InvestmentResponse;
+import com.skr.erp.dto.response.VendorPaymentGroupResponse;
 import com.skr.erp.service.InvestmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -88,6 +89,14 @@ public class InvestmentController {
         return CommonResponse.<List<InvestmentPaymentResponse>>builder().success(true)
                 .message("Payments fetched successfully")
                 .data(investmentService.getPayments(id)).build();
+    }
+
+    // Vendor payment history: each payment and how it was split across invoices.
+    @GetMapping("/vendor/{vendorId}/payments")
+    public CommonResponse<List<VendorPaymentGroupResponse>> vendorPayments(@PathVariable UUID vendorId) {
+        return CommonResponse.<List<VendorPaymentGroupResponse>>builder().success(true)
+                .message("Vendor payments fetched successfully")
+                .data(investmentService.getVendorPaymentHistory(vendorId)).build();
     }
 
     // ── Invoice PDF ───────────────────────────────

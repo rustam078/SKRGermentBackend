@@ -8,6 +8,7 @@ import com.skr.erp.dto.response.InvestmentDetailsResponse;
 import com.skr.erp.dto.response.InvestmentItemResponse;
 import com.skr.erp.dto.response.InvestmentPaymentResponse;
 import com.skr.erp.dto.response.InvestmentResponse;
+import com.skr.erp.dto.response.VendorPaymentGroupResponse;
 import com.skr.erp.entity.*;
 import com.skr.erp.exception.BusinessException;
 import com.skr.erp.pdf.HtmlToPdfGenerator;
@@ -95,19 +96,59 @@ public class InvestmentService {
     }
 
     // Optional payment captured on the Create Investment form.
+    // Vendor purchases clear the oldest dues first, then this invoice; overhead pays only itself.
     private void recordCreationPayment(Investment investment, CreateInvestmentRequest request) {
-        BigDecimal amount = null;
-        if (Boolean.TRUE.equals(request.getFullPayment())) {
-            amount = investment.getGrandTotal();
-        } else if (request.getPaymentAmount() != null && request.getPaymentAmount().compareTo(BigDecimal.ZERO) > 0) {
-            amount = request.getPaymentAmount();
+        PaymentMode mode = request.getPaymentMode() != null ? request.getPaymentMode() : PaymentMode.CASH;
+        LocalDate date = request.getPaymentDate() != null ? request.getPaymentDate() : LocalDate.now();
+
+        if (investment.getVendor() == null) {
+            BigDecimal amount = Boolean.TRUE.equals(request.getFullPayment())
+                    ? investment.getGrandTotal() : request.getPaymentAmount();
+            if (amount != null && amount.compareTo(BigDecimal.ZERO) > 0) {
+                recordPayment(investment, new PaymentEntry(date, mode, amount, UUID.randomUUID()));
+            }
+            return;
         }
+
+        List<Investment> ledger = investmentRepository
+                .findByVendorIdOrderByPurchaseDateAscCreatedAtAsc(investment.getVendor().getId());
+        BigDecimal amount = Boolean.TRUE.equals(request.getFullPayment())
+                ? totalOutstanding(ledger) : request.getPaymentAmount();
+        allocateOldestFirst(ledger, amount, date, mode);
+    }
+
+    /** Remaining due of one invoice (grand total minus what is already paid). */
+    private BigDecimal dueOf(Investment inv) {
+        BigDecimal paid = investmentPaymentRepository.sumByInvestment(inv.getId());
+        return inv.getGrandTotal().subtract(paid == null ? BigDecimal.ZERO : paid).max(BigDecimal.ZERO);
+    }
+
+    private BigDecimal totalOutstanding(List<Investment> ledger) {
+        return ledger.stream().map(this::dueOf).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Apply the amount to invoices oldest first, capping each at its due. */
+    private void allocateOldestFirst(List<Investment> ledger, BigDecimal amount, LocalDate date, PaymentMode mode) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
-        LocalDate date = request.getPaymentDate() != null ? request.getPaymentDate() : investment.getPurchaseDate();
-        PaymentMode mode = request.getPaymentMode() != null ? request.getPaymentMode() : PaymentMode.CASH;
-        recordPayment(investment, date, mode, amount);
+        UUID groupId = UUID.randomUUID();
+        BigDecimal remaining = amount;
+        for (Investment inv : ledger) {
+            if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+                break;
+            }
+            BigDecimal due = dueOf(inv);
+            if (due.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            BigDecimal pay = remaining.min(due);
+            recordPayment(inv, new PaymentEntry(date, mode, pay, groupId));
+            remaining = remaining.subtract(pay);
+        }
+        if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+            throw new BusinessException("Payment exceeds the vendor's total outstanding by " + remaining + ".");
+        }
     }
 
     private void createInventoryBatches(Investment investment) {
@@ -166,6 +207,7 @@ public class InvestmentService {
             item.setQuantity(request.getQuantity());
             item.setUnit(request.getUnit());
             item.setRate(request.getRate());
+            item.setSellingPrice(request.getSellingPrice());
             item.setTotalAmount(request.getQuantity().multiply(request.getRate()));
             if (request.getItemType() == InvestmentItemType.PRODUCT) {
                 Product product = createOrGetProduct(request);
@@ -311,13 +353,18 @@ public class InvestmentService {
                 .productId(item.getProduct() != null ? item.getProduct().getId() : null)
                 .itemName(item.getItemName()).quantity(item.getQuantity())
                 .unit(item.getUnit()).rate(item.getRate())
+                .sellingPrice(item.getSellingPrice())
                 .totalAmount(item.getTotalAmount()).build();
+    }
+
+    // One payment's details; groupId ties together the rows made by a single payment.
+    private record PaymentEntry(LocalDate date, PaymentMode mode, BigDecimal amount, UUID groupId) {
     }
 
     // ── Payments ──────────────────────────────────
     public InvestmentDetailsResponse addPayment(UUID investmentId, AddPaymentRequest request) {
         Investment investment = investmentRepository.findById(investmentId).orElseThrow(() -> new BusinessException("Investment not found"));
-        recordPayment(investment, request.getPaymentDate(), request.getMode(), request.getAmount());
+        recordPayment(investment, new PaymentEntry(request.getPaymentDate(), request.getMode(), request.getAmount(), UUID.randomUUID()));
         return toDetailsResponse(investment);
     }
 
@@ -326,32 +373,57 @@ public class InvestmentService {
      * not in the future; amount must not exceed the remaining due. Payments are
      * immutable once recorded (no delete).
      */
-    private void recordPayment(Investment investment, LocalDate paymentDate, PaymentMode mode, BigDecimal amount) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+    private void recordPayment(Investment investment, PaymentEntry entry) {
+        if (entry.amount() == null || entry.amount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("Payment amount must be greater than zero.");
         }
-        if (paymentDate == null) {
+        if (entry.date() == null) {
             throw new BusinessException("Payment date is required.");
         }
-        if (paymentDate.isBefore(investment.getPurchaseDate())) {
+        if (entry.date().isBefore(investment.getPurchaseDate())) {
             throw new BusinessException("Payment date cannot be before the invoice date (" + investment.getPurchaseDate() + ").");
         }
-        if (paymentDate.isAfter(LocalDate.now())) {
+        if (entry.date().isAfter(LocalDate.now())) {
             throw new BusinessException("Payment date cannot be in the future.");
         }
 
         BigDecimal alreadyPaid = investmentPaymentRepository.sumByInvestment(investment.getId());
         BigDecimal due = investment.getGrandTotal().subtract(alreadyPaid);
-        if (amount.compareTo(due) > 0) {
-            throw new BusinessException("Payment (₹" + amount + ") exceeds the remaining due of ₹" + due + ".");
+        if (entry.amount().compareTo(due) > 0) {
+            throw new BusinessException("Payment (₹" + entry.amount() + ") exceeds the remaining due of ₹" + due + ".");
         }
 
         InvestmentPayment payment = new InvestmentPayment();
         payment.setInvestment(investment);
-        payment.setPaymentDate(paymentDate);
-        payment.setMode(mode);
-        payment.setAmount(amount);
+        payment.setPaymentDate(entry.date());
+        payment.setMode(entry.mode());
+        payment.setAmount(entry.amount());
+        payment.setPaymentGroupId(entry.groupId());
         investmentPaymentRepository.save(payment);
+    }
+
+    /** All of a vendor's payments, grouped by payment event, newest first. */
+    @Transactional(readOnly = true)
+    public List<VendorPaymentGroupResponse> getVendorPaymentHistory(UUID vendorId) {
+        Map<UUID, List<InvestmentPayment>> groups = new LinkedHashMap<>();
+        for (InvestmentPayment p : investmentPaymentRepository.findByVendorId(vendorId)) {
+            UUID key = p.getPaymentGroupId() != null ? p.getPaymentGroupId() : p.getId();
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(p);
+        }
+        return groups.values().stream().map(this::toGroupResponse).toList();
+    }
+
+    private VendorPaymentGroupResponse toGroupResponse(List<InvestmentPayment> group) {
+        InvestmentPayment first = group.get(0);
+        BigDecimal total = group.stream().map(InvestmentPayment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<VendorPaymentGroupResponse.Allocation> allocations = group.stream()
+                .map(p -> VendorPaymentGroupResponse.Allocation.builder()
+                        .invoiceNumber(p.getInvestment().getInvoiceNumber())
+                        .amount(p.getAmount()).build())
+                .toList();
+        return VendorPaymentGroupResponse.builder()
+                .paymentDate(first.getPaymentDate()).mode(first.getMode())
+                .totalAmount(total).allocations(allocations).build();
     }
 
     @Transactional(readOnly = true)

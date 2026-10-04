@@ -19,4 +19,8 @@ public interface InvestmentPaymentRepository extends JpaRepository<InvestmentPay
     // Total paid per investment in one query (for the list view).
     @Query("SELECT p.investment.id, COALESCE(SUM(p.amount), 0) FROM InvestmentPayment p GROUP BY p.investment.id")
     List<Object[]> paidSums();
+
+    // All payments for a vendor (newest first), with the invoice loaded for the history view.
+    @Query("SELECT p FROM InvestmentPayment p JOIN FETCH p.investment i WHERE i.vendor.id = :vendorId ORDER BY p.createdAt DESC")
+    List<InvestmentPayment> findByVendorId(@Param("vendorId") UUID vendorId);
 }

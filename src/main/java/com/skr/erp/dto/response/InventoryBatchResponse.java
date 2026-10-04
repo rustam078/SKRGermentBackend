@@ -19,6 +19,7 @@ public class InventoryBatchResponse {
     private BigDecimal totalQuantity;
     private BigDecimal quantityAvailable;
     private BigDecimal unitCost;
+    private BigDecimal sellingPrice;
     private BigDecimal batchValue;
     private String status;
 }

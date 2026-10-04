@@ -42,7 +42,8 @@ public class QrUnitServiceImpl implements QrUnitService {
                                .orElseThrow(() -> new BusinessException("Batch " + batchNumber + " not found."));
 
         Product product = batch.getProduct();
-        BigDecimal salePrice = currentSalePrice(product.getId());
+        // Prefer this batch's own selling price (set from the purchase MRP); fall back to the product's price.
+        BigDecimal salePrice = batch.getSellingPrice() != null ? batch.getSellingPrice() : currentSalePrice(product.getId());
         if (salePrice == null) {
             throw new BusinessException("Set a sale price for " + product.getName() + " before generating QR labels.");
         }

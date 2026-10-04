@@ -19,5 +19,6 @@ public class InvestmentItemResponse {
     private BigDecimal quantity;
     private UnitType unit;
     private BigDecimal rate;
+    private BigDecimal sellingPrice;
     private BigDecimal totalAmount;
 }

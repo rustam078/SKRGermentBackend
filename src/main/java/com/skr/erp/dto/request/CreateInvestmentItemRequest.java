@@ -27,4 +27,7 @@ public class CreateInvestmentItemRequest {
     @NotNull
     @DecimalMin("0.00")
     private BigDecimal rate;
+
+    // Optional MRP / selling price for this lot (products only).
+    private BigDecimal sellingPrice;
 }

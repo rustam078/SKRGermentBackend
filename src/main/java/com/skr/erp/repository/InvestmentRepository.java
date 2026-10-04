@@ -15,6 +15,9 @@ public interface InvestmentRepository extends JpaRepository<Investment, UUID>, J
 
     Optional<Investment> findTopByOrderByCreatedAtDesc();
 
+    // Vendor's invoices oldest first — used to clear old dues before the new invoice.
+    List<Investment> findByVendorIdOrderByPurchaseDateAscCreatedAtAsc(UUID vendorId);
+
 
     @Query("""
             SELECT i

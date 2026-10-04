@@ -39,6 +39,10 @@ public class InvestmentItem extends BaseEntity {
     @Column(nullable = false)
     private BigDecimal rate;
 
+    // Optional selling price (MRP) for this purchased lot; null → use the product's default price.
+    @Column(name = "selling_price")
+    private BigDecimal sellingPrice;
+
     @Column(nullable = false)
     private BigDecimal totalAmount;
 }
