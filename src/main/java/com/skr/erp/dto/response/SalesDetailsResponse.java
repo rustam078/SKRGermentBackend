@@ -23,11 +23,15 @@ public class SalesDetailsResponse {
     private PaymentMode paymentMode;
     private String paymentProvider;
     private PaymentStatus paymentStatus;
-    private String remarks;
     private BigDecimal subtotal;
     private BigDecimal discount;
     private BigDecimal tax;
     private BigDecimal grandTotal;
+    private BigDecimal amountPaid;
+    private BigDecimal amountDue;
+    private BigDecimal amountReceived;       // total collected in this transaction (this bill + old dues)
+    private BigDecimal paidToPreviousDues;   // part of the payment applied to older invoices
+    private BigDecimal customerBalanceDue;   // customer's remaining balance across all sales
     private BigDecimal totalProfit;
     private List<SalesItemResponse> items;
 }

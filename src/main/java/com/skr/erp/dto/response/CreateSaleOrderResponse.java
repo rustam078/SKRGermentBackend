@@ -20,5 +20,7 @@ public class CreateSaleOrderResponse {
     private BigDecimal subtotal;
     private BigDecimal discount;
     private BigDecimal grandTotal;
+    private BigDecimal amountPaid;
+    private BigDecimal amountDue;
     private PaymentStatus paymentStatus;
 }

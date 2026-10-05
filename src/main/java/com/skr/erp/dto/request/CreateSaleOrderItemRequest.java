@@ -17,10 +17,10 @@ public class CreateSaleOrderItemRequest {
     @NotNull
     @DecimalMin("0.01")
     private BigDecimal quantity;
-    @NotNull
+    /** Scanned lines: frozen printed price. Typed lines: ignored (FIFO batch price used). */
     @DecimalMin("0.00")
     private BigDecimal sellingPrice;
-    /** Per-line discount amount (currency). Optional; null/absent means no discount. */
+    /** Deprecated: discount is now order-level; kept for request compatibility. */
     @DecimalMin("0.00")
     private BigDecimal discount;
     private String batchNumber;

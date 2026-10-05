@@ -98,6 +98,18 @@ public interface InventoryBatchRepository extends JpaRepository<InventoryBatch, 
             """)
     List<InventoryBatch> findAvailableBatchesForSale(UUID productId);
 
+    // Same FIFO list without the write lock — safe for read-only previews (sale form pricing).
+    @Query("""
+            SELECT b
+            FROM InventoryBatch b
+            JOIN FETCH b.product
+            WHERE b.product.id = :productId
+            AND b.quantityAvailable > 0
+            AND b.status = com.skr.erp.common.constants.InventoryBatchStatus.ACTIVE
+            ORDER BY b.receivedDate ASC
+            """)
+    List<InventoryBatch> findAvailableBatchesForSalePreview(UUID productId);
+
     @Query("""
             select b
             from InventoryBatch b

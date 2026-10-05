@@ -14,5 +14,7 @@ public class CustomerSaleResponse {
     private String invoiceNo;
     private LocalDate saleDate;
     private BigDecimal grandTotal;
+    private BigDecimal amountPaid;
+    private BigDecimal amountDue;
     private PaymentStatus paymentStatus;
 }

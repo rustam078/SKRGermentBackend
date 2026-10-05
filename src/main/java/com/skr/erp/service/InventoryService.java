@@ -7,6 +7,7 @@ import com.skr.erp.dto.request.AdjustBatchStockRequest;
 import com.skr.erp.dto.response.InventoryBatchResponse;
 import com.skr.erp.dto.response.InventoryResponse;
 import com.skr.erp.dto.response.LowStockAlertResponse;
+import com.skr.erp.dto.response.SaleBatchResponse;
 import com.skr.erp.dto.response.ProductInventoryDetailResponse;
 import com.skr.erp.entity.*;
 import com.skr.erp.exception.BusinessException;
@@ -170,9 +171,23 @@ public class InventoryService {
     // Current selling price = the sale_price on the latest pricing-history row
     // effective on or before today. Null-safe: returns null when none is set so
     // the sale form can fall back to average cost.
-    private BigDecimal getCurrentSalePrice(UUID productId) {
+    /** Latest effective product-level sale price, or null when none is set. Shared with sales/QR pricing. */
+    public BigDecimal getCurrentSalePrice(UUID productId) {
         return productMaterialCostRepository.findTopByProductIdAndSalePriceNotNullAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(productId, LocalDate.now())
                 .map(mc -> scale2(mc.getSalePrice())).orElse(null);
+    }
+
+    /** FIFO available batches for the sale form, each with its effective selling price. */
+    @Transactional(readOnly = true)
+    public List<SaleBatchResponse> getSaleBatches(UUID productId) {
+        return inventoryBatchRepository.findAvailableBatchesForSalePreview(productId).stream()
+                .map(b -> SaleBatchResponse.builder()
+                        .batchNumber(b.getBatchNumber())
+                        .quantityAvailable(b.getQuantityAvailable())
+                        .sellingPrice(b.getSellingPrice() != null ? b.getSellingPrice() : getCurrentSalePrice(productId))
+                        .unitCost(b.getUnitCost())
+                        .build())
+                .toList();
     }
 
 

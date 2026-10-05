@@ -70,6 +70,23 @@ public class SalesController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @GetMapping("/customer/outstanding")
+    public ResponseEntity<CustomerOutstandingResponse> getCustomerOutstanding(@RequestParam String mobile) {
+        return ResponseEntity.ok(salesService.getCustomerOutstanding(mobile));
+    }
+
+    @GetMapping("/customer/history")
+    public ResponseEntity<PageResponse<CustomerSaleResponse>> getCustomerHistory(@RequestParam String mobile,
+                                                                                 @RequestParam(defaultValue = "0") int page,
+                                                                                 @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(salesService.getCustomerHistory(mobile, PageRequest.of(page, size)));
+    }
+
+    @GetMapping("/customer/payment-history")
+    public ResponseEntity<List<CustomerPaymentGroupResponse>> getCustomerPaymentHistory(@RequestParam String mobile) {
+        return ResponseEntity.ok(salesService.getCustomerPaymentHistory(mobile));
+    }
+
     @GetMapping("/{saleId}")
     public ResponseEntity<SalesDetailsResponse> getSaleDetails(@PathVariable UUID saleId) {
         return ResponseEntity.ok(salesService.getSaleDetails(saleId));

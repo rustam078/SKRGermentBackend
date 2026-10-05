@@ -26,4 +26,7 @@ public class InvoiceResponse {
     private BigDecimal discount;
     private BigDecimal tax;
     private BigDecimal grandTotal;
+    private BigDecimal amountReceived;       // total collected in this transaction
+    private BigDecimal paidToPreviousDues;   // part applied to older invoices
+    private BigDecimal balanceDue;           // customer's remaining balance across all sales
 }

@@ -6,5 +6,6 @@ public enum PaymentMode {
     CREDIT_CARD,
     DEBIT_CARD,
     NET_BANKING,
-    WALLET
+    WALLET,
+    CREDIT // nothing paid at checkout — fully on the customer's account
 }

@@ -21,7 +21,10 @@ public class CreateSaleOrderRequest {
     @NotNull
     private PaymentMode paymentMode;
     private String paymentProvider;
-    private String remarks;
+    /** Single order-level discount (currency) spread across lines by gross; optional. */
+    private java.math.BigDecimal discount;
+    /** Amount the customer pays now (null = full). Shortfall becomes the customer's due. */
+    private java.math.BigDecimal amountReceived;
     @NotEmpty
     private List<CreateSaleOrderItemRequest> items;
     private List<String> reconcileBatches;

@@ -21,6 +21,14 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID>, J
 
     Page<SalesOrder> findByCustomerMobileOrderByCreatedAtDesc(String customerMobile, Pageable pageable);
 
+    // A customer's unpaid sales, oldest first — the ledger a new payment clears in order.
+    @Query("""
+                SELECT s FROM SalesOrder s
+                WHERE s.customerMobile = :mobile AND s.amountPaid < s.grandTotal
+                ORDER BY s.createdAt ASC
+            """)
+    List<SalesOrder> findOutstandingByMobile(@Param("mobile") String mobile);
+
     @Query("""
                 SELECT
                     COUNT(s) AS totalSales,

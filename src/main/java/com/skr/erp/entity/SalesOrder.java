@@ -41,6 +41,14 @@ public class SalesOrder extends BaseEntity {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal grandTotal;
 
+    // How much of this sale has been paid; the rest (grandTotal - amountPaid) is the customer's due.
+    @Column(name = "amount_paid", nullable = false, precision = 19, scale = 2)
+    private BigDecimal amountPaid;
+
+    // What the customer actually handed over at THIS sale's checkout — immutable once set.
+    @Column(name = "amount_received", nullable = false, precision = 19, scale = 2)
+    private BigDecimal amountReceived;
+
     @Enumerated(EnumType.STRING)
     private PaymentMode paymentMode;
 

@@ -18,6 +18,9 @@ public class SalesListResponse {
     private String customerName;
     private String customerMobile;
     private BigDecimal grandTotal;
+    private BigDecimal amountPaid;
+    private BigDecimal amountDue;
+    private BigDecimal amountReceived; // total collected in this sale's transaction (incl. old dues cleared)
     private PaymentMode paymentMode;
     private PaymentStatus paymentStatus;
     private LocalDate saleDate;
