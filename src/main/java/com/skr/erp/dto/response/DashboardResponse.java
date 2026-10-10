@@ -22,6 +22,8 @@ public class DashboardResponse {
     private long salesCount;
     private BigDecimal salesRevenue;
     private BigDecimal salesDiscount;
+    private BigDecimal salesReceived; // amount actually collected
+    private BigDecimal salesDue;      // outstanding (revenue − received)
     private BigDecimal avgOrderValue;
 
     // ── Production (date-ranged) ─────────────────────────

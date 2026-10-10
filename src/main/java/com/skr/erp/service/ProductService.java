@@ -5,14 +5,17 @@ import com.skr.erp.common.constants.RateStatus;
 import com.skr.erp.dto.request.CreatePieceCodeRequest;
 import com.skr.erp.dto.request.CreateProductRateRequest;
 import com.skr.erp.dto.request.CreateProductRequest;
+import com.skr.erp.dto.request.EnableManufacturingRequest;
 import com.skr.erp.dto.response.*;
 import com.skr.erp.entity.Product;
+import com.skr.erp.entity.ProductMaterialCost;
 import com.skr.erp.entity.ProductPieceCode;
 import com.skr.erp.entity.ProductRate;
 import com.skr.erp.exception.BusinessException;
 import com.skr.erp.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -35,6 +38,7 @@ public class ProductService {
     private final ProductMaterialCostRepository productMaterialCostRepository;
     private final ProductImageRepository productImageRepository;
 
+    @Transactional
     public ProductResponse create(CreateProductRequest request) {
         productRepository.findByNameIgnoreCase(request.getName())
                 .ifPresent(product -> {throw new RuntimeException("Product already exists");});
@@ -49,12 +53,65 @@ public class ProductService {
 
         product = productRepository.save(product);
 
+        // Piece codes + initial cost/selling price (effective today) are saved with the product.
+        for (CreatePieceCodeRequest pieceCode : request.getPieceCodes()) {
+            savePieceCode(product, pieceCode);
+        }
+        saveInitialPricing(product, request.getCost(), request.getSellingPrice());
+
         return ProductResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
                 .iconName(product.getIconName())
                 .description(product.getDescription())
                 .active(product.getActive()).build();
+    }
+
+    // Create one piece code for a product (shared by product create + add-piece-code).
+    private ProductPieceCode savePieceCode(Product product, CreatePieceCodeRequest request) {
+        if (productPieceCodeRepository.existsByCodeIgnoreCase(request.getCode())) {
+            throw new BusinessException("Piece code already exists: " + request.getCode());
+        }
+        ProductPieceCode pieceCode = new ProductPieceCode();
+        pieceCode.setProduct(product);
+        pieceCode.setCode(request.getCode().trim().toUpperCase());
+        pieceCode.setRate(request.getRate());
+        pieceCode.setActive(true);
+        return productPieceCodeRepository.save(pieceCode);
+    }
+
+    // Pricing row for today — cost + selling price (updates the row if one already exists for today).
+    private void saveInitialPricing(Product product, BigDecimal cost, BigDecimal sellingPrice) {
+        LocalDate today = LocalDate.now();
+        ProductMaterialCost materialCost = productMaterialCostRepository
+                .findByProductIdAndEffectiveFrom(product.getId(), today)
+                .orElseGet(ProductMaterialCost::new);
+        materialCost.setProduct(product);
+        materialCost.setCost(cost);
+        materialCost.setSalePrice(sellingPrice);
+        materialCost.setEffectiveFrom(today);
+        productMaterialCostRepository.save(materialCost);
+    }
+
+    // Turn a purchased-only product into BOTH by adding its manufacturing piece codes + pricing.
+    @Transactional
+    public ProductResponse enableManufacturing(UUID productId, EnableManufacturingRequest request) {
+        Product product = productRepository.findById(productId).orElseThrow(() -> new BusinessException("Product not found"));
+        if (product.getSource() != ProductSource.PURCHASED) {
+            throw new BusinessException("Manufacturing can be enabled only for purchased-only products.");
+        }
+        product.setSource(ProductSource.BOTH);
+        productRepository.save(product);
+
+        for (CreatePieceCodeRequest pieceCode : request.getPieceCodes()) {
+            savePieceCode(product, pieceCode);
+        }
+        saveInitialPricing(product, request.getCost(), request.getSellingPrice());
+
+        return ProductResponse.builder()
+                .id(product.getId()).name(product.getName())
+                .iconName(product.getIconName()).description(product.getDescription())
+                .source(product.getSource()).active(product.getActive()).build();
     }
 
     public List<ProductResponse> getAll() {
@@ -198,16 +255,7 @@ public class ProductService {
     public PieceCodeResponse createPieceCode(UUID productId, CreatePieceCodeRequest request) {
 
         Product product = productRepository.findById(productId).orElseThrow(() -> new BusinessException("Product not found"));
-        if (productPieceCodeRepository.existsByCodeIgnoreCase(request.getCode())) {
-            throw new BusinessException("Piece code already exists");
-        }
-
-        ProductPieceCode pieceCode = new ProductPieceCode();
-        pieceCode.setProduct(product);
-        pieceCode.setCode(request.getCode().trim().toUpperCase());
-        pieceCode.setRate(request.getRate());
-        pieceCode.setActive(true);
-        pieceCode = productPieceCodeRepository.save(pieceCode);
+        ProductPieceCode pieceCode = savePieceCode(product, request);
         return PieceCodeResponse.builder()
                 .id(pieceCode.getId())
                 .productId(product.getId())

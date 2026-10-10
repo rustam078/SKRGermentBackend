@@ -84,6 +84,8 @@ public class DashboardService {
         long salesCount = lng(salesAgg[0]);
         BigDecimal salesRevenue = bd(salesAgg[1]);
         BigDecimal salesDiscount = bd(salesAgg[2]);
+        BigDecimal salesReceived = bd(salesAgg[3]);
+        BigDecimal salesDue = salesRevenue.subtract(salesReceived);
         BigDecimal avgOrderValue = salesCount > 0
                                    ? salesRevenue.divide(BigDecimal.valueOf(salesCount), 2, RoundingMode.HALF_UP)
                                    : BigDecimal.ZERO;
@@ -120,11 +122,16 @@ public class DashboardService {
                                                                                         .date(dateStr(r[0])).revenue(bd(r[1]))
                                                                                         .orders(lng(r[2])).build()).toList();
 
-        // ── Payment mode breakdown ───────────────────────
-        List<DashboardResponse.Breakdown> paymentBreakdown = salesOrderRepository.paymentBreakdownBetween(start, end).stream()
-                                                          .map(r -> DashboardResponse.Breakdown.builder()
-                                                                  .label(r[0] != null ? r[0].toString() : "UNKNOWN")
-                                                                  .count(lng(r[1])).amount(bd(r[2])).build()).toList();
+        // ── Received by payment mode, plus a Due slice ───
+        List<DashboardResponse.Breakdown> paymentBreakdown = new java.util.ArrayList<>(
+                salesOrderRepository.paymentBreakdownBetween(start, end).stream()
+                        .filter(r -> bd(r[2]).signum() > 0)
+                        .map(r -> DashboardResponse.Breakdown.builder()
+                                .label(r[0] != null ? r[0].toString() : "UNKNOWN")
+                                .count(lng(r[1])).amount(bd(r[2])).build()).toList());
+        if (salesDue.signum() > 0) {
+            paymentBreakdown.add(DashboardResponse.Breakdown.builder().label("Due").amount(salesDue).build());
+        }
 
         // ── Top products ─────────────────────────────────
         List<DashboardResponse.TopProduct> topProducts = salesOrderItemRepository.topProductsBetween(start, end, PageRequest.of(0, 12))
@@ -157,6 +164,8 @@ public class DashboardService {
                 .salesCount(salesCount)
                 .salesRevenue(salesRevenue)
                 .salesDiscount(salesDiscount)
+                .salesReceived(salesReceived)
+                .salesDue(salesDue)
                 .avgOrderValue(avgOrderValue)
                 .productionEntries(productionEntries)
                 .productionQty(productionQty)

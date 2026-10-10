@@ -58,7 +58,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID>, J
 
     // ── Dashboard aggregations ───────────────────────────
     @Query("""
-                SELECT COUNT(s), COALESCE(SUM(s.grandTotal), 0), COALESCE(SUM(s.discount), 0)
+                SELECT COUNT(s), COALESCE(SUM(s.grandTotal), 0), COALESCE(SUM(s.discount), 0), COALESCE(SUM(s.amountPaid), 0)
                 FROM SalesOrder s
                 WHERE s.createdAt >= :start AND s.createdAt < :end
             """)
@@ -74,7 +74,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID>, J
     List<Object[]> revenueSeriesBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     @Query("""
-                SELECT s.paymentMode, COUNT(s), COALESCE(SUM(s.grandTotal), 0)
+                SELECT s.paymentMode, COUNT(s), COALESCE(SUM(s.amountPaid), 0)
                 FROM SalesOrder s
                 WHERE s.createdAt >= :start AND s.createdAt < :end
                 GROUP BY s.paymentMode

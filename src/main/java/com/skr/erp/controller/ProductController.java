@@ -3,6 +3,7 @@ package com.skr.erp.controller;
 import com.skr.erp.common.response.CommonResponse;
 import com.skr.erp.dto.request.CreateProductRateRequest;
 import com.skr.erp.dto.request.CreateProductRequest;
+import com.skr.erp.dto.request.EnableManufacturingRequest;
 import com.skr.erp.dto.response.PieceCodeDropdownResponse;
 import com.skr.erp.dto.response.ProductDetailsResponse;
 import com.skr.erp.dto.response.ProductRateResponse;
@@ -44,6 +45,13 @@ public class ProductController {
         return CommonResponse.<List<ProductResponse>>builder().success(true)
                 .message("Products fetched successfully")
                 .data(productService.getAll()).build();
+    }
+
+    @PostMapping("/{productId}/enable-manufacturing")
+    public CommonResponse<ProductResponse> enableManufacturing(@PathVariable UUID productId, @Valid @RequestBody EnableManufacturingRequest request) {
+        return CommonResponse.<ProductResponse>builder().success(true)
+                .message("Manufacturing enabled")
+                .data(productService.enableManufacturing(productId, request)).build();
     }
 
     @PostMapping("/{productId}/rates")

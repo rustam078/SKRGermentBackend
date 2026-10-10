@@ -1,5 +1,6 @@
 package com.skr.erp.controller;
 
+import com.skr.erp.common.constants.InventoryBatchStatus;
 import com.skr.erp.common.response.CommonResponse;
 import com.skr.erp.common.response.PageResponse;
 import com.skr.erp.dto.request.AdjustBatchStockRequest;
@@ -37,8 +38,8 @@ public class InventoryController {
     }
 
     @GetMapping("/product/{productId}/batches")
-    public ResponseEntity<ProductInventoryDetailResponse> getProductBatches(@PathVariable UUID productId, @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate, @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(inventoryService.getProductBatchDetails(productId, fromDate, toDate, PageRequest.of(page, size)));
+    public ResponseEntity<ProductInventoryDetailResponse> getProductBatches(@PathVariable UUID productId, @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate, @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate, @RequestParam(required = false) InventoryBatchStatus status, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(inventoryService.getProductBatchDetails(productId, fromDate, toDate, status, PageRequest.of(page, size)));
     }
 
     @GetMapping("/product/{productId}/sale-batches")

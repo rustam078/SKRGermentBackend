@@ -413,14 +413,18 @@ public class SalesService {
 
         BigDecimal revenue = BigDecimal.ZERO;
         BigDecimal discount = BigDecimal.ZERO;
+        BigDecimal received = BigDecimal.ZERO;
         for (SalesOrder o : orders) {
-            revenue = revenue.add(o.getGrandTotal() != null ? o.getGrandTotal() : BigDecimal.ZERO);
-            discount = discount.add(o.getDiscount() != null ? o.getDiscount() : BigDecimal.ZERO);
+            revenue = revenue.add(nz(o.getGrandTotal()));
+            discount = discount.add(nz(o.getDiscount()));
+            received = received.add(nz(o.getAmountPaid()));
         }
         return SalesSummaryResponse.builder()
                 .count(orders.size())
                 .revenue(revenue)
                 .discount(discount)
+                .received(received)
+                .due(revenue.subtract(received))
                 .build();
     }
 

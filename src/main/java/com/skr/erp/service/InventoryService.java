@@ -192,7 +192,7 @@ public class InventoryService {
 
 
     @Transactional(readOnly = true)
-    public ProductInventoryDetailResponse getProductBatchDetails(UUID productId, LocalDate fromDate, LocalDate toDate, Pageable pageable) {
+    public ProductInventoryDetailResponse getProductBatchDetails(UUID productId, LocalDate fromDate, LocalDate toDate, InventoryBatchStatus status, Pageable pageable) {
 
         if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
             throw new BusinessException("fromDate cannot be after toDate");
@@ -216,9 +216,16 @@ public class InventoryService {
         BigDecimal totalValue = toBigDecimal(agg[2]);
         BigDecimal totalSold = totalQuantity.subtract(quantityAvailable);
 
-        Page<InventoryBatch> page = ranged
-                ? inventoryBatchRepository.pageByProductIdAndReceivedDateBetween(productId, from, to, sorted)
-                : inventoryBatchRepository.pageByProductId(productId, sorted);
+        Page<InventoryBatch> page;
+        if (status != null) {
+            page = ranged
+                    ? inventoryBatchRepository.pageByProductIdAndReceivedDateBetweenAndStatus(productId, from, to, status, sorted)
+                    : inventoryBatchRepository.pageByProductIdAndStatus(productId, status, sorted);
+        } else {
+            page = ranged
+                    ? inventoryBatchRepository.pageByProductIdAndReceivedDateBetween(productId, from, to, sorted)
+                    : inventoryBatchRepository.pageByProductId(productId, sorted);
+        }
 
         List<InventoryBatchResponse> batchResponses = page.getContent().stream().map(b -> {
             BigDecimal batchValue = b.getQuantityAvailable().multiply(b.getUnitCost());

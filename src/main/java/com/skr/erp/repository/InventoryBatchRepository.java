@@ -1,5 +1,6 @@
 package com.skr.erp.repository;
 
+import com.skr.erp.common.constants.InventoryBatchStatus;
 import com.skr.erp.entity.InventoryBatch;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
@@ -78,6 +79,15 @@ public interface InventoryBatchRepository extends JpaRepository<InventoryBatch, 
     @Query(value = "SELECT b FROM InventoryBatch b JOIN FETCH b.product WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate",
             countQuery = "SELECT COUNT(b) FROM InventoryBatch b WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate")
     Page<InventoryBatch> pageByProductIdAndReceivedDateBetween(@Param("productId") UUID productId, @Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate, Pageable pageable);
+
+    // Batch history filtered by status (Active / Sold tab).
+    @Query(value = "SELECT b FROM InventoryBatch b JOIN FETCH b.product WHERE b.product.id = :productId AND b.status = :status",
+            countQuery = "SELECT COUNT(b) FROM InventoryBatch b WHERE b.product.id = :productId AND b.status = :status")
+    Page<InventoryBatch> pageByProductIdAndStatus(@Param("productId") UUID productId, @Param("status") InventoryBatchStatus status, Pageable pageable);
+
+    @Query(value = "SELECT b FROM InventoryBatch b JOIN FETCH b.product WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate AND b.status = :status",
+            countQuery = "SELECT COUNT(b) FROM InventoryBatch b WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate AND b.status = :status")
+    Page<InventoryBatch> pageByProductIdAndReceivedDateBetweenAndStatus(@Param("productId") UUID productId, @Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate, @Param("status") InventoryBatchStatus status, Pageable pageable);
 
     @Query("SELECT COALESCE(SUM(b.quantityReceived),0), COALESCE(SUM(b.quantityAvailable),0), COALESCE(SUM(b.quantityAvailable * b.unitCost),0) FROM InventoryBatch b WHERE b.product.id = :productId")
     List<Object[]> aggregateByProductId(@Param("productId") UUID productId);

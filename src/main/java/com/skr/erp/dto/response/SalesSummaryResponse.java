@@ -16,4 +16,6 @@ public class SalesSummaryResponse {
     private long count;
     private BigDecimal revenue;
     private BigDecimal discount;
+    private BigDecimal received; // total amount actually collected
+    private BigDecimal due;      // total still outstanding (revenue − received)
 }
