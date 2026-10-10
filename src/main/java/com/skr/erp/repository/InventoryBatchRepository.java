@@ -72,20 +72,20 @@ public interface InventoryBatchRepository extends JpaRepository<InventoryBatch, 
             """)
     List<InventoryBatch> findAllByProductIdAndReceivedDateBetween(@Param("productId") UUID productId, @Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate);
 
-    @Query(value = "SELECT b FROM InventoryBatch b JOIN FETCH b.product WHERE b.product.id = :productId",
+    @Query(value = "SELECT b FROM InventoryBatch b JOIN FETCH b.product WHERE b.product.id = :productId ORDER BY b.receivedDate DESC, b.batchNumber DESC",
             countQuery = "SELECT COUNT(b) FROM InventoryBatch b WHERE b.product.id = :productId")
     Page<InventoryBatch> pageByProductId(@Param("productId") UUID productId, Pageable pageable);
 
-    @Query(value = "SELECT b FROM InventoryBatch b JOIN FETCH b.product WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate",
+    @Query(value = "SELECT b FROM InventoryBatch b JOIN FETCH b.product WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate ORDER BY b.receivedDate DESC, b.batchNumber DESC",
             countQuery = "SELECT COUNT(b) FROM InventoryBatch b WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate")
     Page<InventoryBatch> pageByProductIdAndReceivedDateBetween(@Param("productId") UUID productId, @Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate, Pageable pageable);
 
     // Batch history filtered by status (Active / Sold tab).
-    @Query(value = "SELECT b FROM InventoryBatch b JOIN FETCH b.product WHERE b.product.id = :productId AND b.status = :status",
+    @Query(value = "SELECT b FROM InventoryBatch b JOIN FETCH b.product WHERE b.product.id = :productId AND b.status = :status ORDER BY b.receivedDate DESC, b.batchNumber DESC",
             countQuery = "SELECT COUNT(b) FROM InventoryBatch b WHERE b.product.id = :productId AND b.status = :status")
     Page<InventoryBatch> pageByProductIdAndStatus(@Param("productId") UUID productId, @Param("status") InventoryBatchStatus status, Pageable pageable);
 
-    @Query(value = "SELECT b FROM InventoryBatch b JOIN FETCH b.product WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate AND b.status = :status",
+    @Query(value = "SELECT b FROM InventoryBatch b JOIN FETCH b.product WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate AND b.status = :status ORDER BY b.receivedDate DESC, b.batchNumber DESC",
             countQuery = "SELECT COUNT(b) FROM InventoryBatch b WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate AND b.status = :status")
     Page<InventoryBatch> pageByProductIdAndReceivedDateBetweenAndStatus(@Param("productId") UUID productId, @Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate, @Param("status") InventoryBatchStatus status, Pageable pageable);
 
@@ -94,6 +94,16 @@ public interface InventoryBatchRepository extends JpaRepository<InventoryBatch, 
 
     @Query("SELECT COALESCE(SUM(b.quantityReceived),0), COALESCE(SUM(b.quantityAvailable),0), COALESCE(SUM(b.quantityAvailable * b.unitCost),0) FROM InventoryBatch b WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate")
     List<Object[]> aggregateByProductIdAndReceivedDateBetween(@Param("productId") UUID productId, @Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate);
+
+    // Per-source totals on AVAILABLE stock: [source, availQty, availCost, availValue, soldQty] for the product cards.
+    @Query("""
+                SELECT b.source, COALESCE(SUM(b.quantityAvailable),0),
+                       COALESCE(SUM(b.quantityAvailable * b.unitCost),0),
+                       COALESCE(SUM(b.quantityAvailable * COALESCE(b.sellingPrice, :fallbackSp)),0),
+                       COALESCE(SUM(b.quantityReceived - b.quantityAvailable),0)
+                FROM InventoryBatch b WHERE b.product.id = :productId GROUP BY b.source
+            """)
+    List<Object[]> aggregateByProductIdGroupedBySource(@Param("productId") UUID productId, @Param("fallbackSp") BigDecimal fallbackSp);
 
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

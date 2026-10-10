@@ -35,4 +35,8 @@ public class CustomerPayment extends BaseEntity {
     // Same id across the rows created by one payment (so an allocation can be traced).
     @Column(name = "payment_group_id")
     private UUID paymentGroupId;
+
+    // Invoice no whose checkout made this payment, when it cleared a different (older) invoice.
+    @Column(name = "reference_invoice_no", length = 50)
+    private String referenceInvoiceNo;
 }

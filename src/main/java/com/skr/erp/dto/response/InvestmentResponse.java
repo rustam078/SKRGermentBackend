@@ -7,6 +7,7 @@ import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -20,6 +21,7 @@ public class InvestmentResponse {
     private String vendorName;
     private InvestmentType investmentType;
     private LocalDate purchaseDate;
+    private LocalDateTime createdAt; // for sorting same-date rows by latest first
     private Integer itemCount;
     private BigDecimal grandTotal;
     private BigDecimal amountPaid;

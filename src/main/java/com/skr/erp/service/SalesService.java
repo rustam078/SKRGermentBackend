@@ -173,7 +173,7 @@ public class SalesService {
                 .customerEmail(customer.getEmail())
                 .paymentMode(request.getPaymentMode())
                 .paymentProvider(request.getPaymentProvider())
-                .paymentStatus(PaymentStatus.CREDIT) // placeholder; final status set after payment allocation
+                .paymentStatus(PaymentStatus.DUE) // placeholder; final status set after payment allocation
                 .tax(BigDecimal.ZERO)
                 .subtotal(BigDecimal.ZERO)
                 .discount(BigDecimal.ZERO)
@@ -263,27 +263,34 @@ public class SalesService {
         if (received.compareTo(totalDue) > 0) {
             throw new BusinessException("Amount received exceeds the total due.");
         }
-        UUID groupId = UUID.randomUUID();
+        PaymentContext ctx = new PaymentContext(request.getPaymentMode(), UUID.randomUUID(), order.getInvoiceNo());
         BigDecimal remaining = received;
         for (SalesOrder sale : ledger) {
             if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
-            remaining = payOneSale(sale, remaining, request.getPaymentMode(), groupId);
+            remaining = payOneSale(sale, remaining, ctx);
         }
         order.setPaymentStatus(statusOf(order)); // ensure a status even if payment didn't reach it
         salesOrderRepository.save(order);
     }
 
+    // Mode, group id and the checkout invoice no shared across one payment event.
+    private record PaymentContext(PaymentMode mode, UUID groupId, String sourceInvoiceNo) {}
+
     // Pay one sale from the running amount; records the payment and returns the leftover.
-    private BigDecimal payOneSale(SalesOrder sale, BigDecimal available, PaymentMode mode, UUID groupId) {
+    private BigDecimal payOneSale(SalesOrder sale, BigDecimal available, PaymentContext ctx) {
         BigDecimal due = dueOf(sale);
         if (due.compareTo(BigDecimal.ZERO) <= 0) return available;
         BigDecimal pay = available.min(due);
         CustomerPayment payment = new CustomerPayment();
         payment.setSalesOrder(sale);
         payment.setPaymentDate(LocalDate.now());
-        payment.setMode(mode != null ? mode : PaymentMode.CASH);
+        payment.setMode(ctx.mode() != null ? ctx.mode() : PaymentMode.CASH);
         payment.setAmount(pay);
-        payment.setPaymentGroupId(groupId);
+        payment.setPaymentGroupId(ctx.groupId());
+        // Stamp the checkout invoice only when this payment cleared a different (older) invoice.
+        if (!sale.getInvoiceNo().equals(ctx.sourceInvoiceNo())) {
+            payment.setReferenceInvoiceNo(ctx.sourceInvoiceNo());
+        }
         customerPaymentRepository.save(payment);
         sale.setAmountPaid(nz(sale.getAmountPaid()).add(pay));
         sale.setPaymentStatus(statusOf(sale));
@@ -306,10 +313,10 @@ public class SalesService {
                 .map(this::dueOf).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    // Two states only: fully cleared is PAID, anything still owed is CREDIT.
+    // Two states only: fully cleared is PAID, anything still owed is DUE.
     private PaymentStatus statusOf(SalesOrder sale) {
         return nz(sale.getAmountPaid()).compareTo(sale.getGrandTotal()) >= 0
-                ? PaymentStatus.PAID : PaymentStatus.CREDIT;
+                ? PaymentStatus.PAID : PaymentStatus.DUE;
     }
 
     // A customer's unpaid balance across all their sales (for the sale form).
@@ -514,7 +521,19 @@ public class SalesService {
             sb.append("<tr class=\"grand\"><td>Balance Due</td><td class=\"right\">Rs. ")
                     .append(money(nf, inv.getBalanceDue())).append("</td></tr>");
         }
+        clearanceRows(nf, inv.getClearances(), sb);
         return sb.toString();
+    }
+
+    // Lines showing this invoice's due later cleared from another invoice's checkout.
+    private void clearanceRows(NumberFormat nf, List<SalesDetailsResponse.Clearance> clearances, StringBuilder sb) {
+        if (clearances == null || clearances.isEmpty()) return;
+        DateTimeFormatter df = DateTimeFormatter.ofPattern("dd-MMM-yyyy");
+        for (SalesDetailsResponse.Clearance c : clearances) {
+            sb.append("<tr><td>Due cleared ").append(c.getDate().format(df))
+                    .append(" (").append(esc(c.getMode().name())).append(", Ref: ").append(esc(c.getReferenceInvoiceNo()))
+                    .append(")</td><td class=\"right\">Rs. ").append(money(nf, c.getAmount())).append("</td></tr>");
+        }
     }
 
     private static String money(NumberFormat nf, BigDecimal b) {
@@ -724,7 +743,18 @@ public class SalesService {
                 .customerBalanceDue(customerBalance(order.getCustomerMobile()))
                 .totalProfit(totalProfit)
                 .items(itemResponses)
+                .clearances(clearancesOf(order.getId()))
                 .build();
+    }
+
+    // Payments that cleared this invoice from a later sale's checkout (newest first).
+    private List<SalesDetailsResponse.Clearance> clearancesOf(UUID saleId) {
+        return customerPaymentRepository.findBySalesOrderIdOrderByCreatedAtDesc(saleId).stream()
+                .filter(p -> p.getReferenceInvoiceNo() != null)
+                .map(p -> SalesDetailsResponse.Clearance.builder()
+                        .date(p.getPaymentDate()).mode(p.getMode())
+                        .amount(p.getAmount()).referenceInvoiceNo(p.getReferenceInvoiceNo()).build())
+                .toList();
     }
 
     private SalesItemResponse toSalesItemResponse(SalesOrderItem item) {
@@ -771,6 +801,7 @@ public class SalesService {
                 .amountReceived(nz(order.getAmountReceived()))
                 .paidToPreviousDues(prevDuesOf(order))
                 .balanceDue(customerBalance(order.getCustomerMobile()))
+                .clearances(clearancesOf(order.getId()))
                 .build();
     }
 

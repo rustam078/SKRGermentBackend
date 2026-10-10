@@ -9,6 +9,7 @@ import com.skr.erp.dto.response.InventoryResponse;
 import com.skr.erp.dto.response.LowStockAlertResponse;
 import com.skr.erp.dto.response.SaleBatchResponse;
 import com.skr.erp.dto.response.ProductInventoryDetailResponse;
+import com.skr.erp.dto.response.ProductStockSummaryResponse;
 import com.skr.erp.entity.*;
 import com.skr.erp.exception.BusinessException;
 import com.skr.erp.qr.QrUnitService;
@@ -175,6 +176,26 @@ public class InventoryService {
     public BigDecimal getCurrentSalePrice(UUID productId) {
         return productMaterialCostRepository.findTopByProductIdAndSalePriceNotNullAndEffectiveFromLessThanEqualOrderByEffectiveFromDesc(productId, LocalDate.now())
                 .map(mc -> scale2(mc.getSalePrice())).orElse(null);
+    }
+
+    // Purchase + production totals (qty, cost, value) for this product's detail cards.
+    @Transactional(readOnly = true)
+    public ProductStockSummaryResponse getProductStockSummary(UUID productId) {
+        BigDecimal fallbackSp = scale2(getCurrentSalePrice(productId)); // ZERO when no price set
+        BigDecimal purQty = BigDecimal.ZERO, purCost = BigDecimal.ZERO;
+        BigDecimal manQty = BigDecimal.ZERO, manCost = BigDecimal.ZERO, value = BigDecimal.ZERO, sold = BigDecimal.ZERO;
+        for (Object[] r : inventoryBatchRepository.aggregateByProductIdGroupedBySource(productId, fallbackSp)) {
+            BigDecimal qty = toBigDecimal(r[1]), cost = toBigDecimal(r[2]);
+            value = value.add(toBigDecimal(r[3]));
+            sold = sold.add(toBigDecimal(r[4]));
+            if (ProductSource.PURCHASED.name().equals(r[0])) { purQty = qty; purCost = cost; }
+            else { manQty = manQty.add(qty); manCost = manCost.add(cost); }
+        }
+        return ProductStockSummaryResponse.builder()
+                .purchasedQty(purQty).purchasedCost(purCost)
+                .manufacturedQty(manQty).manufacturedCost(manCost)
+                .totalQty(purQty.add(manQty)).totalCost(purCost.add(manCost))
+                .stockValue(value).soldQty(sold).build();
     }
 
     /** FIFO available batches for the sale form, each with its effective selling price. */

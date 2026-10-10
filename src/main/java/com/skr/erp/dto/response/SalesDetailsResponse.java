@@ -34,4 +34,15 @@ public class SalesDetailsResponse {
     private BigDecimal customerBalanceDue;   // customer's remaining balance across all sales
     private BigDecimal totalProfit;
     private List<SalesItemResponse> items;
+    private List<Clearance> clearances;  // payments that cleared this invoice from a later checkout
+
+    /** One cross-invoice clearance: when, by which mode, how much, and the clearing invoice. */
+    @Data
+    @Builder
+    public static class Clearance {
+        private LocalDate date;
+        private PaymentMode mode;
+        private BigDecimal amount;
+        private String referenceInvoiceNo;
+    }
 }

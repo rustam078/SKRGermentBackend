@@ -15,6 +15,7 @@ import com.skr.erp.pdf.HtmlToPdfGenerator;
 import com.skr.erp.repository.*;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -293,7 +294,9 @@ public class InvestmentService {
             paidByInvestment.put((UUID) row[0], (BigDecimal) row[1]);
         }
 
-        return investmentRepository.findAll(specification).stream().map(inv -> toResponse(inv, paidByInvestment.getOrDefault(inv.getId(), BigDecimal.ZERO))).toList();
+        // Latest purchase date on top; same date → latest created time first.
+        Sort sort = Sort.by(Sort.Order.desc("purchaseDate"), Sort.Order.desc("createdAt"));
+        return investmentRepository.findAll(specification, sort).stream().map(inv -> toResponse(inv, paidByInvestment.getOrDefault(inv.getId(), BigDecimal.ZERO))).toList();
     }
 
     @Transactional(readOnly = true)
@@ -318,6 +321,7 @@ public class InvestmentService {
                 .vendorId(investment.getVendor() != null ? investment.getVendor().getId() : null)
                 .vendorName(investment.getVendor() != null ? investment.getVendor().getName() : null)
                 .investmentType(investment.getInvestmentType()).purchaseDate(investment.getPurchaseDate())
+                .createdAt(investment.getCreatedAt())
                 .itemCount(investment.getItems().size()).grandTotal(investment.getGrandTotal())
                 .amountPaid(safePaid).paymentStatus(computeStatus(safePaid, investment.getGrandTotal())).build();
     }
