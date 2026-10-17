@@ -72,7 +72,6 @@ public class ProductionExcelGenerator {
             r = addInfo(sheet, r, labelStyle, "Production Date",
                     d.getProductionDate() != null ? d.getProductionDate().format(DateTimeFormatter.ofPattern("dd-MMM-yyyy")) : "");
             r = addInfo(sheet, r, labelStyle, "Employee", nn(d.getEmployeeName()));
-            r = addInfo(sheet, r, labelStyle, "Remarks", nn(d.getRemarks()));
             r++; // blank
 
             // Header row

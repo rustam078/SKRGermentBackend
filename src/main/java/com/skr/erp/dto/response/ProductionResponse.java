@@ -17,7 +17,6 @@ public class ProductionResponse {
     private UUID employeeId;
     private String employeeName;
     private LocalDate productionDate;
-    private String remarks;
     private Integer totalQuantity;
     private BigDecimal totalAmount;
     private Integer productCount;

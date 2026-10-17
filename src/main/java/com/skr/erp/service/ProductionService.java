@@ -61,7 +61,6 @@ public class ProductionService {
 
         productionEntry.setEmployee(employee);
         productionEntry.setProductionDate(request.getProductionDate());
-        productionEntry.setRemarks(request.getRemarks());
 
         for (ProductionItemRequest item : request.getItems()) {
 
@@ -120,7 +119,6 @@ public class ProductionService {
                 .id(productionEntry.getId())
                 .employeeName(productionEntry.getEmployee().getFullName())
                 .productionDate(productionEntry.getProductionDate())
-                .remarks(productionEntry.getRemarks())
                 .productCount(productionEntry.getDetails().size())
                 .totalQuantity(totalQuantity).totalAmount(totalAmount)
                 .items(productionEntry.getDetails().stream().map(this::toItemResponse).toList())
@@ -138,7 +136,6 @@ public class ProductionService {
 
         productionEntry.setEmployee(employee);
         productionEntry.setProductionDate(request.getProductionDate());
-        productionEntry.setRemarks(request.getRemarks());
         productionEntry.getDetails().clear();
 
         for (ProductionItemRequest item : request.getItems()) {
@@ -280,7 +277,6 @@ public class ProductionService {
             }
         }
 
-        String remarks = (d.getRemarks() == null || d.getRemarks().isBlank()) ? "-" : d.getRemarks();
         String generatedOn = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd-MMM-yyyy hh:mm a"));
 
         return template.replace("{{companyName}}", esc(setting("COMPANY_NAME", "SKR Garment")))
@@ -289,7 +285,7 @@ public class ProductionService {
                 .replace("{{companyGstin}}", esc(setting("COMPANY_GSTIN", "-")))
                 .replace("{{refId}}", esc(d.getId() != null ? d.getId().toString() : "-"))
                 .replace("{{productionDate}}", d.getProductionDate() != null ? d.getProductionDate().format(DateTimeFormatter.ofPattern("dd-MMM-yyyy")) : "-")
-                .replace("{{employeeName}}", esc(d.getEmployeeName())).replace("{{remarks}}", esc(remarks))
+                .replace("{{employeeName}}", esc(d.getEmployeeName())).replace("{{remarks}}", "")
                 .replace("{{productCount}}", String.valueOf(d.getProductCount() != null ? d.getProductCount() : 0))
                 .replace("{{totalQuantity}}", nf.format(d.getTotalQuantity() != null ? d.getTotalQuantity() : 0))
                 .replace("{{totalAmount}}", d.getTotalAmount() != null ? nf.format(d.getTotalAmount()) : "0")
@@ -322,7 +318,6 @@ public class ProductionService {
                 .employeeId(productionEntry.getEmployee().getId())
                 .employeeName(productionEntry.getEmployee().getFullName())
                 .productionDate(productionEntry.getProductionDate())
-                .remarks(productionEntry.getRemarks())
                 .productCount(productionEntry.getDetails().size())
                 .totalQuantity(totalQuantity)
                 .totalAmount(totalAmount)

@@ -22,8 +22,6 @@ public class ProductionEntry extends BaseEntity {
     @Column(name = "production_date", nullable = false)
     private LocalDate productionDate;
 
-    private String remarks;
-
     // Batch-fetched so a page of N entries loads details in IN(...) batches, not N queries.
     @OneToMany(mappedBy = "productionEntry", cascade = CascadeType.ALL, orphanRemoval = true)
     @BatchSize(size = 100)

@@ -103,9 +103,6 @@ public class ProductionPdfGenerator {
         table.addCell("Employee");
         table.addCell(response.getEmployeeName());
 
-        table.addCell("Remarks");
-        table.addCell(response.getRemarks());
-
         document.add(table);
 
         document.add(new Paragraph(" "));
