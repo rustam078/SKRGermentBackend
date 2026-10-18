@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,6 +38,7 @@ public class ProductService {
     private final InvestmentItemRepository investmentItemRepository;
     private final ProductMaterialCostRepository productMaterialCostRepository;
     private final ProductImageRepository productImageRepository;
+    private final InventoryBatchRepository inventoryBatchRepository;
 
     @Transactional
     public ProductResponse create(CreateProductRequest request) {
@@ -127,6 +129,15 @@ public class ProductService {
         // One query → which products have an image (avoids N+1).
         Set<UUID> productsWithImage = new HashSet<>(productImageRepository.findAllProductIds());
 
+        // One query → quantity-weighted avg batch selling price (used for purchased products with no configured price).
+        Map<UUID, BigDecimal> avgBatchSalePrice = new HashMap<>();
+        for (Object[] row : inventoryBatchRepository.weightedAvgSellingPrices()) {
+            long qty = ((Number) row[2]).longValue();
+            if (qty > 0) {
+                avgBatchSalePrice.put((UUID) row[0], ((BigDecimal) row[1]).divide(BigDecimal.valueOf(qty), 0, RoundingMode.HALF_UP));
+            }
+        }
+
         return productRepository.findAll().stream().map(product -> {
 
             int totalCodes = (int) productPieceCodeRepository.countByProductId(product.getId());
@@ -142,7 +153,8 @@ public class ProductService {
                     .totalPieceCodes(totalCodes)
                     .activePieceCodes(activeCodes)
                     .inactivePieceCodes(inactiveCodes)
-                    .sellingPrice(salePriceByProduct.get(product.getId()))
+                    // Configured material-cost price first; else the weighted-avg batch price (purchased stock).
+                    .sellingPrice(salePriceByProduct.getOrDefault(product.getId(), avgBatchSalePrice.get(product.getId())))
                     .hasImage(productsWithImage.contains(product.getId()))
                     .createdAt(product.getCreatedAt())
                     .updatedAt(product.getUpdatedAt()).build();

@@ -150,7 +150,7 @@ public class EmployeeService {
                     existing.setQuantity(existing.getQuantity() + detail.getQuantity());
                     existing.setEarnings(existing.getEarnings().add(earning));
                 }
-                history.add(EmployeeProductionHistoryResponse.builder().productionDate(entry.getProductionDate()).productName(detail.getProductNameSnapshot()).quantity(detail.getQuantity()).rate(rate).earnings(earning).build());
+                history.add(EmployeeProductionHistoryResponse.builder().productionDate(entry.getProductionDate()).productId(productId).productName(detail.getProductNameSnapshot()).quantity(detail.getQuantity()).rate(rate).earnings(earning).build());
             }
         }
 
