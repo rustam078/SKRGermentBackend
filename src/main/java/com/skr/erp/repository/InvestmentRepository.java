@@ -38,7 +38,7 @@ public interface InvestmentRepository extends JpaRepository<Investment, UUID>, J
             FROM Investment i
             LEFT JOIN FETCH i.items
             WHERE i.vendor.id = :vendorId
-            ORDER BY i.purchaseDate DESC
+            ORDER BY i.purchaseDate DESC, i.createdAt DESC
             """)
     List<Investment> findAllWithItemsByVendorId(UUID vendorId);
 
