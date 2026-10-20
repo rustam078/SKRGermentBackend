@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -129,13 +130,25 @@ public class ProductService {
         // One query → which products have an image (avoids N+1).
         Set<UUID> productsWithImage = new HashSet<>(productImageRepository.findAllProductIds());
 
-        // One query → quantity-weighted avg batch selling price (used for purchased products with no configured price).
+        // One query → weighted-avg batch price (fallback for purchased products with no configured price).
         Map<UUID, BigDecimal> avgBatchSalePrice = new HashMap<>();
         for (Object[] row : inventoryBatchRepository.weightedAvgSellingPrices()) {
             long qty = ((Number) row[2]).longValue();
             if (qty > 0) {
                 avgBatchSalePrice.put((UUID) row[0], ((BigDecimal) row[1]).divide(BigDecimal.valueOf(qty), 0, RoundingMode.HALF_UP));
             }
+        }
+
+        // One query → total in-stock qty per product (all available batches).
+        Map<UUID, Integer> availableQtyByProduct = new HashMap<>();
+        for (Object[] row : inventoryBatchRepository.availableQtyByProduct()) {
+            availableQtyByProduct.put((UUID) row[0], ((Number) row[1]).intValue());
+        }
+
+        // One query → distinct in-stock batch prices per product (for the card price tooltip).
+        Map<UUID, List<BigDecimal>> batchPricesByProduct = new HashMap<>();
+        for (Object[] row : inventoryBatchRepository.distinctInStockSalePrices()) {
+            batchPricesByProduct.computeIfAbsent((UUID) row[0], k -> new ArrayList<>()).add((BigDecimal) row[1]);
         }
 
         return productRepository.findAll().stream().map(product -> {
@@ -155,6 +168,8 @@ public class ProductService {
                     .inactivePieceCodes(inactiveCodes)
                     // Configured material-cost price first; else the weighted-avg batch price (purchased stock).
                     .sellingPrice(salePriceByProduct.getOrDefault(product.getId(), avgBatchSalePrice.get(product.getId())))
+                    .availableQty(availableQtyByProduct.getOrDefault(product.getId(), 0))
+                    .batchSalePrices(batchPricesByProduct.getOrDefault(product.getId(), List.of()))
                     .hasImage(productsWithImage.contains(product.getId()))
                     .createdAt(product.getCreatedAt())
                     .updatedAt(product.getUpdatedAt()).build();

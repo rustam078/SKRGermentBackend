@@ -101,6 +101,24 @@ public interface InventoryBatchRepository extends JpaRepository<InventoryBatch, 
             """)
     List<Object[]> weightedAvgSellingPrices();
 
+    // Total in-stock quantity per product (all available batches, regardless of price): [productId, SUM(available)].
+    @Query("""
+            SELECT b.product.id, COALESCE(SUM(b.quantityAvailable),0)
+            FROM InventoryBatch b
+            WHERE b.quantityAvailable > 0
+            GROUP BY b.product.id
+            """)
+    List<Object[]> availableQtyByProduct();
+
+    // Distinct in-stock batch selling prices per product (for the card price tooltip): [productId, sellingPrice].
+    @Query("""
+            SELECT DISTINCT b.product.id, b.sellingPrice
+            FROM InventoryBatch b
+            WHERE b.quantityAvailable > 0 AND b.sellingPrice IS NOT NULL
+            ORDER BY b.product.id, b.sellingPrice
+            """)
+    List<Object[]> distinctInStockSalePrices();
+
     @Query("SELECT COALESCE(SUM(b.quantityReceived),0), COALESCE(SUM(b.quantityAvailable),0), COALESCE(SUM(b.quantityAvailable * b.unitCost),0) FROM InventoryBatch b WHERE b.product.id = :productId AND b.receivedDate BETWEEN :fromDate AND :toDate")
     List<Object[]> aggregateByProductIdAndReceivedDateBetween(@Param("productId") UUID productId, @Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate);
 
