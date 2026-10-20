@@ -35,6 +35,7 @@ public class ReportService {
     private static final String SALES_TEMPLATE = "SALES_REPORT_TEMPLATE";
     private static final String EMPLOYEE_TEMPLATE = "EMPLOYEE_REPORT_TEMPLATE";
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("dd-MMM");
+    private static final String DASH = "-";
     private static final PageRequest TOP = PageRequest.of(0, 1000);
 
     private final ReportSupport support;
@@ -86,27 +87,41 @@ public class ReportService {
     public byte[] salesExcel(LocalDate from, LocalDate to) {
         ReportPeriod p = ReportPeriod.of(from, to);
         Object[] t = salesOrderRepository.reportSummaryBetween(p.start(), p.endExclusive()).get(0);
-        BigDecimal profit = salesOrderItemRepository.grossProfitBetween(p.start(), p.endExclusive());
+        BigDecimal mrp = asBig(t[1]), discount = asBig(t[2]);
+        BigDecimal due = asBig(t[4]).subtract(asBig(t[5]));
         List<String[]> summary = List.of(
-                new String[]{"Sales", support.num(asLong(t[0]))},
-                new String[]{"Revenue", support.money(asBig(t[4]))},
-                new String[]{"Discount", support.money(asBig(t[2]))},
+                new String[]{"Total Sales", support.num(asLong(t[0]))},
+                new String[]{"MRP Total", support.money(mrp)},
+                new String[]{"Sale", support.money(mrp.subtract(discount))},
+                new String[]{"Discount", support.money(discount)},
+                new String[]{"Due", support.money(due)},
                 new String[]{"GST", support.money(asBig(t[3]))},
-                new String[]{"Profit", support.money(profit)});
+                new String[]{"Net Profit", support.money(salesOrderItemRepository.grossProfitBetween(p.start(), p.endExclusive()))});
         List<ReportSection> sections = List.of(
-                new ReportSection("By product", List.of("Product", "Qty sold", "Revenue", "Profit"),
+                new ReportSection("Invoice details",
+                        List.of("Inv No", "Date", "Customer", "Mobile", "Sale Amount (incl GST)", "Received", "Due", "Status"),
+                        invoiceExcelRows(salesOrderRepository.salesInvoicesBetween(p.start(), p.endExclusive()))),
+                new ReportSection("By product", List.of("Product", "Qty sold", "Sale Amount", "Profit"),
                         rows4(salesOrderItemRepository.salesByProductBetween(p.start(), p.endExclusive(), TOP))));
         return ReportExcelWriter.build(workbook("Sales report", p, summary, sections));
     }
 
     private Map<String, String> salesValues(ReportPeriod p) {
         Object[] t = salesOrderRepository.reportSummaryBetween(p.start(), p.endExclusive()).get(0);
+        BigDecimal mrp = asBig(t[1]), discount = asBig(t[2]);
+        BigDecimal received = asBig(t[5]), due = asBig(t[4]).subtract(received);
         Map<String, String> v = base(p);
         v.put("totalSales", support.num(asLong(t[0])));
-        v.put("totalRevenue", support.money(asBig(t[4])));
-        v.put("totalDiscount", support.money(asBig(t[2])));
+        v.put("mrpTotal", support.money(mrp));
+        v.put("saleAmount", support.money(mrp.subtract(discount)));
+        v.put("totalDiscount", support.money(discount));
+        v.put("totalDue", support.money(due));
         v.put("totalTax", support.money(asBig(t[3])));
         v.put("totalProfit", support.money(salesOrderItemRepository.grossProfitBetween(p.start(), p.endExclusive())));
+        v.put("invoiceRows", htmlInvoiceRows(salesOrderRepository.salesInvoicesBetween(p.start(), p.endExclusive())));
+        v.put("invTotalSale", support.money(asBig(t[4])));
+        v.put("invTotalReceived", support.money(received));
+        v.put("invTotalDue", support.money(due));
         v.put("productRows", htmlRows4(salesOrderItemRepository.salesByProductBetween(p.start(), p.endExclusive(), TOP)));
         return v;
     }
@@ -123,11 +138,12 @@ public class ReportService {
         List<String[]> summary = List.of(
                 new String[]{"Employee", d.getEmployee().getFullName()},
                 new String[]{"Total pieces", support.num(d.getSummary().getTotalProductionQty())},
+                new String[]{"Products", support.num(d.getSummary().getProductsWorkedOn())},
                 new String[]{"Total payment", support.money(d.getSummary().getTotalEarnings())},
-                new String[]{"Products", support.num(d.getSummary().getProductsWorkedOn())});
+                new String[]{"Avg rate / pc", support.money(avgRate(d.getSummary().getTotalEarnings(), d.getSummary().getTotalProductionQty()))});
         List<ReportSection> sections = List.of(
-                new ReportSection("By product", List.of("Product", "Pieces", "Payment"), employeeProductRows(d.getProductSummary())),
-                new ReportSection("Daily production", List.of("Date", "Product", "Pieces", "Rate", "Payment"), employeeHistoryRows(d.getProductionHistory())));
+                new ReportSection("Daily production", List.of("Date", "Product", "Pieces", "Rate", "Payment"), employeeHistoryRows(d.getProductionHistory())),
+                new ReportSection("By product", List.of("Product", "Pieces", "Payment"), employeeProductRows(d.getProductSummary())));
         return ReportExcelWriter.build(workbook("Employee report", p, summary, sections));
     }
 
@@ -139,6 +155,7 @@ public class ReportService {
         v.put("totalQuantity", support.num(d.getSummary().getTotalProductionQty()));
         v.put("totalEarnings", support.money(d.getSummary().getTotalEarnings()));
         v.put("productsWorkedOn", support.num(d.getSummary().getProductsWorkedOn()));
+        v.put("avgRate", support.money(avgRate(d.getSummary().getTotalEarnings(), d.getSummary().getTotalProductionQty())));
         v.put("productRows", htmlEmployeeProducts(d.getProductSummary()));
         v.put("historyRows", htmlEmployeeHistory(d.getProductionHistory()));
         return v;
@@ -177,6 +194,70 @@ public class ReportService {
                     .append("<td class=\"num\">").append(support.money(asBig(r[3]))).append("</td></tr>");
         }
         return sb.toString();
+    }
+
+    // One HTML row per invoice (latest first); amount/status derived from grand total vs received.
+    private String htmlInvoiceRows(List<Object[]> rows) {
+        if (rows.isEmpty()) return emptyRow(8);
+        StringBuilder sb = new StringBuilder();
+        for (Object[] r : rows) {
+            BigDecimal grand = asBig(r[4]), received = asBig(r[5]);
+            BigDecimal due = grand.subtract(received).max(BigDecimal.ZERO);
+            sb.append("<tr><td>").append(support.esc(str(r[0]))).append("</td>")
+                    .append("<td>").append(dayMonth(r[1])).append("</td>")
+                    .append("<td>").append(customer(r[2])).append("</td>")
+                    .append("<td>").append(mobile(r[3])).append("</td>")
+                    .append("<td class=\"num\">").append(support.money(grand)).append("</td>")
+                    .append("<td class=\"num\">").append(received.signum() == 0 ? DASH : support.money(received)).append("</td>")
+                    .append("<td class=\"num\">").append(due.signum() == 0 ? DASH : support.money(due)).append("</td>")
+                    .append("<td class=\"ctr\">").append(statusPill(received, due)).append("</td></tr>");
+        }
+        return sb.toString();
+    }
+
+    // Status pill: Paid (no shade), Partial (light shade), Unpaid (darker shade).
+    private String statusPill(BigDecimal received, BigDecimal due) {
+        if (due.signum() <= 0) return "<span class=\"st\">Paid</span>";
+        if (received.signum() > 0) return "<span class=\"st partial\">Partial</span>";
+        return "<span class=\"st unpaid\">Unpaid</span>";
+    }
+
+    // Invoice rows for Excel (same data, status as plain text).
+    private List<List<String>> invoiceExcelRows(List<Object[]> rows) {
+        List<List<String>> out = new ArrayList<>();
+        for (Object[] r : rows) {
+            BigDecimal grand = asBig(r[4]), received = asBig(r[5]);
+            BigDecimal due = grand.subtract(received).max(BigDecimal.ZERO);
+            String status = due.signum() <= 0 ? "Paid" : received.signum() > 0 ? "Partial" : "Unpaid";
+            out.add(List.of(str(r[0]), dayMonth(r[1]), customerText(r[2]), mobileText(r[3]),
+                    support.money(grand), support.money(received), support.money(due), status));
+        }
+        return out;
+    }
+
+    private String dayMonth(Object o) {
+        if (o instanceof java.time.LocalDateTime dt) return dt.format(DAY);
+        if (o instanceof java.sql.Timestamp ts) return ts.toLocalDateTime().format(DAY);
+        return DASH;
+    }
+
+    private String customerText(Object o) {
+        String s = o == null ? "" : o.toString().trim();
+        return s.isEmpty() ? "Walk-in" : s;
+    }
+
+    private String mobileText(Object o) {
+        String s = o == null ? "" : o.toString().trim();
+        return s.isEmpty() ? DASH : s;
+    }
+
+    private String customer(Object o) {
+        return support.esc(customerText(o));
+    }
+
+    private String mobile(Object o) {
+        String s = mobileText(o);
+        return DASH.equals(s) ? s : support.esc(s);
     }
 
     private String htmlEmployeeProducts(List<EmployeeProductSummaryResponse> list) {
@@ -242,6 +323,13 @@ public class ReportService {
 
     private String emptyRow(int cols) {
         return "<tr><td colspan=\"" + cols + "\">No data for this period</td></tr>";
+    }
+
+    // Average piece-rate = total payment / total pieces (0 when no pieces).
+    private BigDecimal avgRate(BigDecimal earnings, Number qty) {
+        long pieces = qty == null ? 0L : qty.longValue();
+        if (pieces <= 0 || earnings == null) return BigDecimal.ZERO;
+        return earnings.divide(BigDecimal.valueOf(pieces), 2, java.math.RoundingMode.HALF_UP);
     }
 
     private long asLong(Object o) {

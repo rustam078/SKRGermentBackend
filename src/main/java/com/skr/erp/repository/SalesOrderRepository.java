@@ -47,14 +47,24 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID>, J
             """)
     SalesSummaryProjection countAndTotalRevenue();
 
-    // Sales totals for a date range (report summary): count, subtotal, discount, tax, grand total.
+    // Sales totals for a date range (report summary): count, subtotal, discount, tax, grand total, amount received.
     @Query("""
                 SELECT COUNT(s), COALESCE(SUM(s.subtotal), 0), COALESCE(SUM(s.discount), 0),
-                       COALESCE(SUM(s.tax), 0), COALESCE(SUM(s.grandTotal), 0)
+                       COALESCE(SUM(s.tax), 0), COALESCE(SUM(s.grandTotal), 0), COALESCE(SUM(s.amountReceived), 0)
                 FROM SalesOrder s
                 WHERE s.createdAt >= :start AND s.createdAt < :end
             """)
     List<Object[]> reportSummaryBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // Invoice-wise detail for the sales report, latest first (matches the on-screen table order).
+    @Query("""
+                SELECT s.invoiceNo, s.createdAt, s.customerName, s.customerMobile,
+                       s.grandTotal, s.amountReceived
+                FROM SalesOrder s
+                WHERE s.createdAt >= :start AND s.createdAt < :end
+                ORDER BY s.createdAt DESC
+            """)
+    List<Object[]> salesInvoicesBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     // ── Dashboard aggregations ───────────────────────────
     @Query("""

@@ -36,8 +36,13 @@ public class ReportSupport {
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }
 
+    // Currency symbol from settings (falls back to Rs.) so reports match the app.
+    public String currencySymbol() {
+        return setting("CURRENCY_SYMBOL", "Rs.");
+    }
+
     public String money(BigDecimal v) {
-        return "Rs. " + numberFormat.format(v == null ? BigDecimal.ZERO : v);
+        return currencySymbol() + " " + numberFormat.format(v == null ? BigDecimal.ZERO : v);
     }
 
     public String num(Number v) {

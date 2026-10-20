@@ -149,29 +149,29 @@ INSERT INTO public.system_setting (id, setting_key, setting_value, description, 
 <head>
 <style>
   @page { size: A4; margin: 32px; }
-  body { font-family: Helvetica, Arial, sans-serif; color: #1E293B; font-size: 12px; }
+  body { font-family: Helvetica, Arial, sans-serif; color: #000; font-size: 12px; }
   .head { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
   .head td { vertical-align: top; }
-  .brand { font-size: 24px; font-weight: bold; color: #2563EB; letter-spacing: 1px; }
-  .inv-title { font-size: 26px; font-weight: bold; color: #0F172A; text-align: right; }
-  .inv-no { font-size: 12px; color: #64748B; text-align: right; }
-  .divider { border-bottom: 3px solid #2563EB; margin: 6px 0 16px 0; }
+  .brand { font-size: 24px; font-weight: bold; color: #000; letter-spacing: 1px; }
+  .inv-title { font-size: 26px; font-weight: bold; color: #000; text-align: right; }
+  .inv-no { font-size: 12px; color: #555; text-align: right; }
+  .divider { border-bottom: 3px solid #000; margin: 6px 0 16px 0; }
   .meta { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
   .meta td { vertical-align: top; padding: 0 6px; width: 50%; }
-  .label { font-size: 10px; font-weight: bold; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
-  .value { font-size: 13px; font-weight: bold; color: #0F172A; }
-  .muted { color: #64748B; font-size: 11px; margin-top: 2px; }
-  .badge { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 10px; font-weight: bold; }
-  .badge-paid { background-color: #DCFCE7; color: #166534; }
-  .badge-other { background-color: #FEF3C7; color: #92400E; }
+  .label { font-size: 10px; font-weight: bold; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
+  .value { font-size: 13px; font-weight: bold; color: #000; }
+  .muted { color: #555; font-size: 11px; margin-top: 2px; }
+  .badge { display: inline-block; padding: 3px 10px; border: 1px solid #000; border-radius: 10px; font-size: 10px; font-weight: bold; color: #000; }
+  .badge-paid { background-color: #ffffff; }
+  .badge-other { background-color: #dcdcdc; }
   table.items { width: 100%; border-collapse: collapse; margin-bottom: 14px; table-layout: fixed; }
-  table.items th { background-color: #0F172A; color: #ffffff; text-align: left; padding: 8px 10px; font-size: 11px; }
-  table.items td { padding: 8px 10px; border-bottom: 1px solid #E2E8F0; word-wrap: break-word; }
+  table.items th { background-color: #ececec; color: #000; text-align: left; padding: 8px 10px; font-size: 11px; border: 1px solid #000; }
+  table.items td { padding: 8px 10px; border-bottom: 1px solid #999; word-wrap: break-word; }
   .right { text-align: right; }
   .totals { width: 46%; margin-left: 54%; border-collapse: collapse; }
   .totals td { padding: 5px 10px; }
-  .totals .grand td { border-top: 2px solid #0F172A; font-size: 15px; font-weight: bold; color: #2563EB; }
-  .footer { margin-top: 30px; border-top: 1px solid #E2E8F0; padding-top: 10px; color: #94A3B8; font-size: 10px; text-align: center; }
+  .totals .grand td { border-top: 2px solid #000; font-size: 15px; font-weight: bold; color: #000; }
+  .footer { margin-top: 30px; border-top: 1px solid #999; padding-top: 10px; color: #555; font-size: 10px; text-align: center; }
 </style>
 </head>
 <body>
@@ -224,10 +224,11 @@ INSERT INTO public.system_setting (id, setting_key, setting_value, description, 
   </table>
 
   <table class="totals">
-    <tr><td>Subtotal</td><td class="right">Rs. {{subtotal}}</td></tr>
-    <tr><td>Discount</td><td class="right">- Rs. {{discount}}</td></tr>
-    <tr><td>Tax</td><td class="right">Rs. {{tax}}</td></tr>
-    <tr class="grand"><td>Grand Total</td><td class="right">Rs. {{grandTotal}}</td></tr>
+    <tr><td>Subtotal</td><td class="right">{{cur}} {{subtotal}}</td></tr>
+    <tr><td>Discount</td><td class="right">- {{cur}} {{discount}}</td></tr>
+    <tr><td>Tax</td><td class="right">{{cur}} {{tax}}</td></tr>
+    <tr class="grand"><td>Grand Total</td><td class="right">{{cur}} {{grandTotal}}</td></tr>
+    {{paymentRows}}
   </table>
 
   <div class="footer">Thank you for your business. Generated on {{generatedOn}}.</div>

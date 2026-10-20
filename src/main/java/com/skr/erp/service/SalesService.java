@@ -463,6 +463,7 @@ public class SalesService {
 
     private String fillInvoiceTemplate(String template, InvoiceResponse inv) {
         NumberFormat nf = NumberFormat.getNumberInstance(new Locale("en", "IN"));
+        String cur = setting("CURRENCY_SYMBOL", "Rs.");
 
         StringBuilder rows = new StringBuilder();
         if (inv.getItems() != null) {
@@ -470,9 +471,9 @@ public class SalesService {
                 rows.append("<tr>")
                         .append("<td>").append(esc(it.getProductName())).append("</td>")
                         .append("<td class=\"right\">").append(fmtQty(it.getQuantity())).append("</td>")
-                        .append("<td class=\"right\">Rs. ").append(money(nf, it.getSellingPrice())).append("</td>")
-                        .append("<td class=\"right\">Rs. ").append(money(nf, it.getDiscount())).append("</td>")
-                        .append("<td class=\"right\">Rs. ").append(money(nf, it.getLineTotal())).append("</td>")
+                        .append("<td class=\"right\">").append(cur).append(" ").append(money(nf, it.getSellingPrice())).append("</td>")
+                        .append("<td class=\"right\">").append(cur).append(" ").append(money(nf, it.getDiscount())).append("</td>")
+                        .append("<td class=\"right\">").append(cur).append(" ").append(money(nf, it.getLineTotal())).append("</td>")
                         .append("</tr>");
             }
         }
@@ -485,7 +486,8 @@ public class SalesService {
         String provider = (inv.getPaymentProvider() == null || inv.getPaymentProvider().isBlank()) ? "" : inv.getPaymentProvider();
 
         return template
-                .replace("{{paymentRows}}", paymentRows(nf, inv))
+                .replace("{{paymentRows}}", paymentRows(nf, inv, cur))
+                .replace("{{cur}}", cur)
                 .replace("{{companyName}}", esc(setting("COMPANY_NAME", "SKR Garment")))
                 .replace("{{companyAddress}}", esc(setting("COMPANY_ADDRESS", "")))
                 .replace("{{companyContact}}", esc(setting("COMPANY_CONTACT", "")))
@@ -509,30 +511,30 @@ public class SalesService {
     }
 
     // Invoice payment rows: amount received, any part applied to older dues, and balance due.
-    private String paymentRows(NumberFormat nf, InvoiceResponse inv) {
+    private String paymentRows(NumberFormat nf, InvoiceResponse inv, String cur) {
         StringBuilder sb = new StringBuilder();
-        sb.append("<tr><td>Amount Received</td><td class=\"right\">Rs. ")
+        sb.append("<tr><td>Amount Received</td><td class=\"right\">").append(cur).append(" ")
                 .append(money(nf, inv.getAmountReceived())).append("</td></tr>");
         if (inv.getPaidToPreviousDues() != null && inv.getPaidToPreviousDues().compareTo(BigDecimal.ZERO) > 0) {
-            sb.append("<tr><td>Towards Previous Dues</td><td class=\"right\">Rs. ")
+            sb.append("<tr><td>Towards Previous Dues</td><td class=\"right\">").append(cur).append(" ")
                     .append(money(nf, inv.getPaidToPreviousDues())).append("</td></tr>");
         }
         if (inv.getBalanceDue() != null && inv.getBalanceDue().compareTo(BigDecimal.ZERO) > 0) {
-            sb.append("<tr class=\"grand\"><td>Balance Due</td><td class=\"right\">Rs. ")
+            sb.append("<tr class=\"grand\"><td>Balance Due</td><td class=\"right\">").append(cur).append(" ")
                     .append(money(nf, inv.getBalanceDue())).append("</td></tr>");
         }
-        clearanceRows(nf, inv.getClearances(), sb);
+        clearanceRows(nf, inv.getClearances(), sb, cur);
         return sb.toString();
     }
 
     // Lines showing this invoice's due later cleared from another invoice's checkout.
-    private void clearanceRows(NumberFormat nf, List<SalesDetailsResponse.Clearance> clearances, StringBuilder sb) {
+    private void clearanceRows(NumberFormat nf, List<SalesDetailsResponse.Clearance> clearances, StringBuilder sb, String cur) {
         if (clearances == null || clearances.isEmpty()) return;
         DateTimeFormatter df = DateTimeFormatter.ofPattern("dd-MMM-yyyy");
         for (SalesDetailsResponse.Clearance c : clearances) {
             sb.append("<tr><td>Due cleared ").append(c.getDate().format(df))
                     .append(" (").append(esc(c.getMode().name())).append(", Ref: ").append(esc(c.getReferenceInvoiceNo()))
-                    .append(")</td><td class=\"right\">Rs. ").append(money(nf, c.getAmount())).append("</td></tr>");
+                    .append(")</td><td class=\"right\">").append(cur).append(" ").append(money(nf, c.getAmount())).append("</td></tr>");
         }
     }
 
