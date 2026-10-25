@@ -101,12 +101,13 @@ public class InvestmentService {
     private void recordCreationPayment(Investment investment, CreateInvestmentRequest request) {
         PaymentMode mode = request.getPaymentMode() != null ? request.getPaymentMode() : PaymentMode.CASH;
         LocalDate date = request.getPaymentDate() != null ? request.getPaymentDate() : LocalDate.now();
+        String ref = request.getPaymentReference();
 
         if (investment.getVendor() == null) {
             BigDecimal amount = Boolean.TRUE.equals(request.getFullPayment())
                     ? investment.getGrandTotal() : request.getPaymentAmount();
             if (amount != null && amount.compareTo(BigDecimal.ZERO) > 0) {
-                recordPayment(investment, new PaymentEntry(date, mode, amount, UUID.randomUUID()));
+                recordPayment(investment, new PaymentEntry(date, mode, amount, UUID.randomUUID(), ref));
             }
             return;
         }
@@ -115,7 +116,7 @@ public class InvestmentService {
                 .findByVendorIdOrderByPurchaseDateAscCreatedAtAsc(investment.getVendor().getId());
         BigDecimal amount = Boolean.TRUE.equals(request.getFullPayment())
                 ? totalOutstanding(ledger) : request.getPaymentAmount();
-        allocateOldestFirst(ledger, amount, date, mode);
+        allocateOldestFirst(ledger, amount, date, mode, ref);
     }
 
     /** Remaining due of one invoice (grand total minus what is already paid). */
@@ -129,7 +130,7 @@ public class InvestmentService {
     }
 
     /** Apply the amount to invoices oldest first, capping each at its due. */
-    private void allocateOldestFirst(List<Investment> ledger, BigDecimal amount, LocalDate date, PaymentMode mode) {
+    private void allocateOldestFirst(List<Investment> ledger, BigDecimal amount, LocalDate date, PaymentMode mode, String reference) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
@@ -144,7 +145,7 @@ public class InvestmentService {
                 continue;
             }
             BigDecimal pay = remaining.min(due);
-            recordPayment(inv, new PaymentEntry(date, mode, pay, groupId));
+            recordPayment(inv, new PaymentEntry(date, mode, pay, groupId, reference));
             remaining = remaining.subtract(pay);
         }
         if (remaining.compareTo(BigDecimal.ZERO) > 0) {
@@ -362,13 +363,13 @@ public class InvestmentService {
     }
 
     // One payment's details; groupId ties together the rows made by a single payment.
-    private record PaymentEntry(LocalDate date, PaymentMode mode, BigDecimal amount, UUID groupId) {
+    private record PaymentEntry(LocalDate date, PaymentMode mode, BigDecimal amount, UUID groupId, String reference) {
     }
 
     // ── Payments ──────────────────────────────────
     public InvestmentDetailsResponse addPayment(UUID investmentId, AddPaymentRequest request) {
         Investment investment = investmentRepository.findById(investmentId).orElseThrow(() -> new BusinessException("Investment not found"));
-        recordPayment(investment, new PaymentEntry(request.getPaymentDate(), request.getMode(), request.getAmount(), UUID.randomUUID()));
+        recordPayment(investment, new PaymentEntry(request.getPaymentDate(), request.getMode(), request.getAmount(), UUID.randomUUID(), request.getReference()));
         return toDetailsResponse(investment);
     }
 
@@ -403,6 +404,7 @@ public class InvestmentService {
         payment.setMode(entry.mode());
         payment.setAmount(entry.amount());
         payment.setPaymentGroupId(entry.groupId());
+        payment.setReference(entry.reference());
         investmentPaymentRepository.save(payment);
     }
 
@@ -438,7 +440,7 @@ public class InvestmentService {
     private InvestmentPaymentResponse toPaymentResponse(InvestmentPayment p) {
         return InvestmentPaymentResponse.builder()
                 .id(p.getId()).paymentDate(p.getPaymentDate()).mode(p.getMode())
-                .amount(p.getAmount()).createdAt(p.getCreatedAt()).build();
+                .amount(p.getAmount()).reference(p.getReference()).createdAt(p.getCreatedAt()).build();
     }
 
     // ── Invoice PDF ───────────────────────────────
@@ -510,11 +512,11 @@ public class InvestmentService {
     }
 
     /**
-     * Currency prefix for the PDF. Default PDF fonts lack the rupee glyph, so map it to "Rs.".
+     * Currency prefix for the PDF (symbol + space). The embedded Noto Sans font renders the
+     * rupee glyph, so the configured symbol is shown as-is.
      */
     private String currencyPrefix() {
-        String sym = setting("CURRENCY_SYMBOL", "₹");
-        return "₹".equals(sym) ? "Rs. " : sym;
+        return setting("CURRENCY_SYMBOL", "₹") + " ";
     }
 
     private String setting(String key, String fallback) {

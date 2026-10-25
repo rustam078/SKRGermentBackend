@@ -17,5 +17,6 @@ public class InvestmentPaymentResponse {
     private LocalDate paymentDate;
     private PaymentMode mode;
     private BigDecimal amount;
+    private String reference;
     private LocalDateTime createdAt;
 }

@@ -36,4 +36,5 @@ public class CreateInvestmentRequest {
     private BigDecimal paymentAmount;
     private PaymentMode paymentMode;
     private LocalDate paymentDate;
+    private String paymentReference;
 }

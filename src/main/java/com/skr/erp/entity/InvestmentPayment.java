@@ -35,4 +35,7 @@ public class InvestmentPayment extends BaseEntity {
     // Same id across the rows created by one payment (so an allocation can be traced).
     @Column(name = "payment_group_id")
     private UUID paymentGroupId;
+
+    @Column(name = "reference", length = 120)
+    private String reference;
 }
