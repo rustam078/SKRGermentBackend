@@ -1,5 +1,7 @@
 package com.skr.erp.repository;
 
+import com.skr.erp.common.constants.PaymentMode;
+import com.skr.erp.common.constants.PaymentStatus;
 import com.skr.erp.dto.response.SalesSummaryProjection;
 import com.skr.erp.entity.SalesOrder;
 import org.springframework.data.domain.Page;
@@ -65,6 +67,22 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID>, J
                 ORDER BY s.createdAt DESC
             """)
     List<Object[]> salesInvoicesBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // Filter-aware summary totals computed in SQL (count, revenue, discount, received) — avoids
+    // loading every matching sale into memory for the list header. `search` must be a pre-built
+    // lowercased %like% pattern (or null); start/end are the date bounds (or null).
+    @Query("""
+                SELECT COUNT(s), COALESCE(SUM(s.grandTotal), 0), COALESCE(SUM(s.discount), 0), COALESCE(SUM(s.amountPaid), 0)
+                FROM SalesOrder s
+                WHERE (:search IS NULL OR LOWER(s.invoiceNo) LIKE :search OR LOWER(s.customerName) LIKE :search OR LOWER(s.customerMobile) LIKE :search)
+                  AND (CAST(:start AS timestamp) IS NULL OR s.createdAt >= :start)
+                  AND (CAST(:end AS timestamp) IS NULL OR s.createdAt < :end)
+                  AND (:paymentMode IS NULL OR s.paymentMode = :paymentMode)
+                  AND (:paymentStatus IS NULL OR s.paymentStatus = :paymentStatus)
+            """)
+    List<Object[]> summaryFiltered(@Param("search") String search, @Param("start") LocalDateTime start,
+                                   @Param("end") LocalDateTime end, @Param("paymentMode") PaymentMode paymentMode,
+                                   @Param("paymentStatus") PaymentStatus paymentStatus);
 
     // ── Dashboard aggregations ───────────────────────────
     @Query("""

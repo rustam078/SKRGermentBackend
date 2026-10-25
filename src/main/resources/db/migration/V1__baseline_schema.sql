@@ -109,6 +109,7 @@ CREATE TABLE public.investment_payment (
     payment_date date NOT NULL,
     mode character varying(20) NOT NULL,
     amount numeric(18,2) NOT NULL,
+    reference character varying(120),
     created_at timestamp without time zone NOT NULL,
     updated_at timestamp without time zone
 );

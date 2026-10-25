@@ -214,20 +214,9 @@ public class EmployeeService {
             LocalDate fromDate,
             LocalDate toDate) {
 
+        // Scoped DB query (employee + date range) instead of loading every production entry into memory.
         List<ProductionEntry> entries =
-                productionEntryRepository.findAll()
-                        .stream()
-                        .filter(entry ->
-                                entry.getEmployee()
-                                        .getId()
-                                        .equals(employeeId))
-                        .filter(entry ->
-                                !entry.getProductionDate()
-                                        .isBefore(fromDate))
-                        .filter(entry ->
-                                !entry.getProductionDate()
-                                        .isAfter(toDate))
-                        .toList();
+                productionEntryRepository.findByEmployeeWithDetails(employeeId, fromDate, toDate);
 
         return entries.stream()
 

@@ -414,20 +414,18 @@ public class SalesService {
             throw new BusinessException("fromDate cannot be after toDate");
         }
 
-        // Same filter as the list, so the header totals always match the rows.
-        List<SalesOrder> orders = salesOrderRepository.findAll(
-                SalesSpecification.filter(search, fromDate, toDate, paymentMode, paymentStatus));
+        // Same filter as the list, but totals are aggregated in SQL (no loading all rows into memory).
+        String pattern = (search != null && !search.isBlank()) ? "%" + search.toLowerCase() + "%" : null;
+        java.time.LocalDateTime start = fromDate != null ? fromDate.atStartOfDay() : null;
+        java.time.LocalDateTime end = toDate != null ? toDate.plusDays(1).atStartOfDay() : null;
+        Object[] t = salesOrderRepository.summaryFiltered(pattern, start, end, paymentMode, paymentStatus).get(0);
 
-        BigDecimal revenue = BigDecimal.ZERO;
-        BigDecimal discount = BigDecimal.ZERO;
-        BigDecimal received = BigDecimal.ZERO;
-        for (SalesOrder o : orders) {
-            revenue = revenue.add(nz(o.getGrandTotal()));
-            discount = discount.add(nz(o.getDiscount()));
-            received = received.add(nz(o.getAmountPaid()));
-        }
+        long count = ((Number) t[0]).longValue();
+        BigDecimal revenue = (BigDecimal) t[1];
+        BigDecimal discount = (BigDecimal) t[2];
+        BigDecimal received = (BigDecimal) t[3];
         return SalesSummaryResponse.builder()
-                .count(orders.size())
+                .count(count)
                 .revenue(revenue)
                 .discount(discount)
                 .received(received)

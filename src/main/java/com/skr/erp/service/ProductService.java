@@ -151,11 +151,18 @@ public class ProductService {
             batchPricesByProduct.computeIfAbsent((UUID) row[0], k -> new ArrayList<>()).add((BigDecimal) row[1]);
         }
 
+        // One query → piece-code total/active counts per product (avoids 3 counts per product).
+        Map<UUID, int[]> codeCountsByProduct = new HashMap<>();
+        for (Object[] row : productPieceCodeRepository.codeCountsByProduct()) {
+            codeCountsByProduct.put((UUID) row[0], new int[]{((Number) row[1]).intValue(), ((Number) row[2]).intValue()});
+        }
+
         return productRepository.findAll().stream().map(product -> {
 
-            int totalCodes = (int) productPieceCodeRepository.countByProductId(product.getId());
-            int activeCodes = (int) productPieceCodeRepository.countByProductIdAndActiveTrue(product.getId());
-            int inactiveCodes = (int) productPieceCodeRepository.countByProductIdAndActiveFalse(product.getId());
+            int[] codeCounts = codeCountsByProduct.getOrDefault(product.getId(), new int[]{0, 0});
+            int totalCodes = codeCounts[0];
+            int activeCodes = codeCounts[1];
+            int inactiveCodes = totalCodes - activeCodes;
 
             return ProductResponse.builder()
                     .id(product.getId()).name(product.getName())

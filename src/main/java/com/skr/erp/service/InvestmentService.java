@@ -289,15 +289,42 @@ public class InvestmentService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        // One query for total paid per investment → avoids N+1 in the list.
+        // One query each for paid total, item count and vendor name → avoids per-row N+1 in the list.
         Map<UUID, BigDecimal> paidByInvestment = new HashMap<>();
         for (Object[] row : investmentPaymentRepository.paidSums()) {
             paidByInvestment.put((UUID) row[0], (BigDecimal) row[1]);
         }
+        Map<UUID, Integer> itemCountByInvestment = new HashMap<>();
+        for (Object[] row : investmentItemRepository.countByInvestment()) {
+            itemCountByInvestment.put((UUID) row[0], ((Number) row[1]).intValue());
+        }
+        Map<UUID, String> vendorNameById = new HashMap<>();
+        for (Vendor v : vendorRepository.findAll()) {
+            vendorNameById.put(v.getId(), v.getName());
+        }
 
         // Latest purchase date on top; same date → latest created time first.
         Sort sort = Sort.by(Sort.Order.desc("purchaseDate"), Sort.Order.desc("createdAt"));
-        return investmentRepository.findAll(specification, sort).stream().map(inv -> toResponse(inv, paidByInvestment.getOrDefault(inv.getId(), BigDecimal.ZERO))).toList();
+        return investmentRepository.findAll(specification, sort).stream()
+                .map(inv -> toListResponse(inv,
+                        paidByInvestment.getOrDefault(inv.getId(), BigDecimal.ZERO),
+                        itemCountByInvestment.getOrDefault(inv.getId(), 0),
+                        vendorNameById))
+                .toList();
+    }
+
+    // List mapping that reads vendor name + item count from pre-built maps (no lazy loads per row).
+    private InvestmentResponse toListResponse(Investment investment, BigDecimal paid, int itemCount, Map<UUID, String> vendorNameById) {
+        BigDecimal safePaid = paid == null ? BigDecimal.ZERO : paid;
+        UUID vendorId = investment.getVendor() != null ? investment.getVendor().getId() : null;
+        return InvestmentResponse.builder()
+                .id(investment.getId()).invoiceNumber(investment.getInvoiceNumber())
+                .vendorId(vendorId)
+                .vendorName(vendorId != null ? vendorNameById.get(vendorId) : null)
+                .investmentType(investment.getInvestmentType()).purchaseDate(investment.getPurchaseDate())
+                .createdAt(investment.getCreatedAt())
+                .itemCount(itemCount).grandTotal(investment.getGrandTotal())
+                .amountPaid(safePaid).paymentStatus(computeStatus(safePaid, investment.getGrandTotal())).build();
     }
 
     @Transactional(readOnly = true)
