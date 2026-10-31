@@ -84,8 +84,8 @@ public class DashboardService {
         long salesCount = lng(salesAgg[0]);
         BigDecimal salesRevenue = bd(salesAgg[1]);
         BigDecimal salesDiscount = bd(salesAgg[2]);
-        BigDecimal salesReceived = bd(salesAgg[3]);
-        BigDecimal salesDue = salesRevenue.subtract(salesReceived);
+        BigDecimal salesReceived = bd(salesAgg[3]); // actual cash tendered (may exceed revenue, clears old dues)
+        BigDecimal salesDue = bd(salesAgg[4]);      // per-invoice due, floored at 0 in SQL
         BigDecimal avgOrderValue = salesCount > 0
                                    ? salesRevenue.divide(BigDecimal.valueOf(salesCount), 2, RoundingMode.HALF_UP)
                                    : BigDecimal.ZERO;

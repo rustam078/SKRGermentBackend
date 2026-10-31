@@ -92,8 +92,11 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID>, J
                                    @Param("paymentStatus") PaymentStatus paymentStatus);
 
     // ── Dashboard aggregations ───────────────────────────
+    // count, revenue, discount, received (actual cash tendered), due (per-invoice floored at 0).
     @Query("""
-                SELECT COUNT(s), COALESCE(SUM(s.grandTotal), 0), COALESCE(SUM(s.discount), 0), COALESCE(SUM(s.amountPaid), 0)
+                SELECT COUNT(s), COALESCE(SUM(s.grandTotal), 0), COALESCE(SUM(s.discount), 0),
+                       COALESCE(SUM(s.amountReceived), 0),
+                       COALESCE(SUM(CASE WHEN s.grandTotal > s.amountPaid THEN s.grandTotal - s.amountPaid ELSE 0 END), 0)
                 FROM SalesOrder s
                 WHERE s.createdAt >= :start AND s.createdAt < :end
             """)
