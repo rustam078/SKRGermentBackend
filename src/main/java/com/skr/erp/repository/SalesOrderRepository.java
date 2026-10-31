@@ -63,6 +63,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID>, J
 
     // Invoice-wise detail for the sales report, latest first (matches the on-screen table order).
     // Received = amountReceived (actual cash tendered); amountPaid drives the per-invoice due + status.
+    // Pageable lets the PDF fetch only the top N rows while Excel pulls them all (Pageable.unpaged()).
     @Query("""
                 SELECT s.invoiceNo, s.createdAt, s.customerName, s.customerMobile,
                        s.grandTotal, s.amountReceived, s.amountPaid
@@ -70,7 +71,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID>, J
                 WHERE s.createdAt >= :start AND s.createdAt < :end
                 ORDER BY s.createdAt DESC
             """)
-    List<Object[]> salesInvoicesBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    List<Object[]> salesInvoicesBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end, Pageable pageable);
 
     // Filter-aware summary totals computed in SQL (count, revenue, discount, received, due) — avoids
     // loading every matching sale into memory for the list header. received = actual cash tendered;

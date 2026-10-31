@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -253,9 +254,11 @@ public class InvestmentService {
                 .stream().map(InvestmentItem::getTotalAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         investment.setSubTotal(subTotal);
+        // Final amount is always rounded to whole rupees so it matches the UI and a full payment clears it.
         BigDecimal grandTotal = subTotal.add(investment.getGstAmount())
                 .add(investment.getOtherCharge())
-                .subtract(investment.getDiscountAmount());
+                .subtract(investment.getDiscountAmount())
+                .setScale(0, RoundingMode.HALF_UP);
 
         investment.setGrandTotal(grandTotal);
     }

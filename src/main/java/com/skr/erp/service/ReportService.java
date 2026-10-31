@@ -13,6 +13,7 @@ import com.skr.erp.repository.SalesOrderItemRepository;
 import com.skr.erp.repository.SalesOrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +38,8 @@ public class ReportService {
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("dd-MMM");
     private static final String DASH = "-";
     private static final PageRequest TOP = PageRequest.of(0, 1000);
+    // How many invoice rows the PDF lists (readable cap); Excel still gets the full list.
+    private static final PageRequest INVOICE_PDF_ROWS = PageRequest.of(0, 5000);
 
     private final ReportSupport support;
     private final ProductionEntryDetailRepository productionDetailRepository;
@@ -100,7 +103,7 @@ public class ReportService {
         List<ReportSection> sections = List.of(
                 new ReportSection("Invoice details",
                         List.of("Inv No", "Date", "Customer", "Mobile", "Sale Amount (incl GST)", "Received", "Due", "Status"),
-                        invoiceExcelRows(salesOrderRepository.salesInvoicesBetween(p.start(), p.endExclusive()))),
+                        invoiceExcelRows(salesOrderRepository.salesInvoicesBetween(p.start(), p.endExclusive(), Pageable.unpaged()))),
                 new ReportSection("By product", List.of("Product", "Qty sold", "Sale Amount", "Profit"),
                         rows4(salesOrderItemRepository.salesByProductBetween(p.start(), p.endExclusive(), TOP))));
         return ReportExcelWriter.build(workbook("Sales report", p, summary, sections));
@@ -118,7 +121,8 @@ public class ReportService {
         v.put("totalDue", support.money(due));
         v.put("totalTax", support.money(asBig(t[3])));
         v.put("totalProfit", support.money(salesOrderItemRepository.grossProfitBetween(p.start(), p.endExclusive())));
-        v.put("invoiceRows", htmlInvoiceRows(salesOrderRepository.salesInvoicesBetween(p.start(), p.endExclusive())));
+        // PDF lists the latest INVOICE_PDF_ROWS invoices (a full list of thousands would be unprintable); Excel has all.
+        v.put("invoiceRows", htmlInvoiceRows(salesOrderRepository.salesInvoicesBetween(p.start(), p.endExclusive(), INVOICE_PDF_ROWS), asLong(t[0])));
         v.put("invTotalSale", support.money(asBig(t[4])));
         v.put("invTotalReceived", support.money(received));
         v.put("invTotalDue", support.money(due));
@@ -197,7 +201,8 @@ public class ReportService {
     }
 
     // One HTML row per invoice (latest first); amount/status derived from grand total vs received.
-    private String htmlInvoiceRows(List<Object[]> rows) {
+    // Only the first `total`-capped rows are rendered in the PDF; a note points to Excel for the rest.
+    private String htmlInvoiceRows(List<Object[]> rows, long total) {
         if (rows.isEmpty()) return emptyRow(8);
         StringBuilder sb = new StringBuilder();
         for (Object[] r : rows) {
@@ -211,6 +216,11 @@ public class ReportService {
                     .append("<td class=\"num\">").append(received.signum() == 0 ? DASH : support.money(received)).append("</td>")
                     .append("<td class=\"num\">").append(due.signum() == 0 ? DASH : support.money(due)).append("</td>")
                     .append("<td class=\"ctr\">").append(statusPill(paid, due)).append("</td></tr>");
+        }
+        if (total > rows.size()) {
+            sb.append("<tr><td colspan=\"8\" style=\"text-align:center;color:#666666;font-style:italic;\">Showing latest ")
+                    .append(rows.size()).append(" of ").append(total)
+                    .append(" invoices. Download the Excel report for the complete list.</td></tr>");
         }
         return sb.toString();
     }

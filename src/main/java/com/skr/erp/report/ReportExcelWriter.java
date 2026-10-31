@@ -7,7 +7,7 @@ import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
 import java.io.ByteArrayOutputStream;
 import java.util.List;
@@ -15,12 +15,21 @@ import java.util.List;
 /** Builds a single-sheet .xlsx report: company header, title, period, summary and titled sections. */
 public final class ReportExcelWriter {
 
+    // Streaming workbook keeps this many rows in memory and flushes the rest — handles huge reports.
+    private static final int WINDOW = 200;
+    private static final int COL_WIDTH = 22 * 256; // fixed width (chars) so we never scan all rows to auto-size.
+    private static final int COLS = 8;
+
     private ReportExcelWriter() {
     }
 
     public static byte[] build(ReportWorkbookData data) {
-        try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+        SXSSFWorkbook wb = new SXSSFWorkbook(WINDOW);
+        try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
             Sheet sheet = wb.createSheet("Report");
+            for (int c = 0; c < COLS; c++) {
+                sheet.setColumnWidth(c, COL_WIDTH);
+            }
             CellStyle bold = boldStyle(wb);
             int r = 0;
             r = line(sheet, r, data.companyName(), bold);
@@ -38,13 +47,12 @@ public final class ReportExcelWriter {
                     r = row(sheet, r, dataRow, null);
                 }
             }
-            for (int c = 0; c < 6; c++) {
-                sheet.autoSizeColumn(c);
-            }
             wb.write(os);
             return os.toByteArray();
         } catch (Exception e) {
             throw new BusinessException("Failed to build Excel report: " + e.getMessage());
+        } finally {
+            wb.dispose(); // remove the streaming temp files
         }
     }
 

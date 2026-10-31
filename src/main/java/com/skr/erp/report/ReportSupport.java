@@ -21,8 +21,14 @@ public class ReportSupport {
 
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("dd-MMM-yyyy hh:mm a");
 
+    private static final long SYMBOL_TTL_MS = 30_000;
+
     private final SystemSettingRepository systemSettingRepository;
     private final NumberFormat numberFormat = NumberFormat.getNumberInstance(new Locale("en", "IN"));
+    // Currency symbol is read for every money() cell; cache it briefly so a big report doesn't fire
+    // one system_setting query per row (was an N+1 that stalled large Excel/PDF reports).
+    private volatile String cachedSymbol;
+    private volatile long cachedSymbolAt;
 
     // Live system-setting value, or the fallback when missing/blank.
     public String setting(String key, String fallback) {
@@ -36,9 +42,15 @@ public class ReportSupport {
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }
 
-    // Currency symbol from settings (falls back to Rs.) so reports match the app.
+    // Currency symbol from settings (falls back to Rs.); cached for a few seconds to avoid a
+    // per-row DB hit while a report formats thousands of amounts.
     public String currencySymbol() {
-        return setting("CURRENCY_SYMBOL", "Rs.");
+        long now = System.currentTimeMillis();
+        if (cachedSymbol == null || now - cachedSymbolAt > SYMBOL_TTL_MS) {
+            cachedSymbol = setting("CURRENCY_SYMBOL", "Rs.");
+            cachedSymbolAt = now;
+        }
+        return cachedSymbol;
     }
 
     public String money(BigDecimal v) {
