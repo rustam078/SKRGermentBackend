@@ -28,6 +28,7 @@ public class InvoiceResponse {
     private BigDecimal grandTotal;
     private BigDecimal amountReceived;       // total collected in this transaction
     private BigDecimal paidToPreviousDues;   // part applied to older invoices
-    private BigDecimal balanceDue;           // customer's remaining balance across all sales
+    private BigDecimal balanceDue;           // this invoice's own remaining due (hidden once cleared)
     private List<SalesDetailsResponse.Clearance> clearances; // later payments that cleared this invoice
+    private List<SalesDetailsResponse.PreviousDue> previousDuesAllocation; // older invoices this checkout cleared
 }

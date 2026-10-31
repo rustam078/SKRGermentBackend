@@ -25,5 +25,7 @@ public class InvestmentResponse {
     private Integer itemCount;
     private BigDecimal grandTotal;
     private BigDecimal amountPaid;
+    // Actual cash received in this invoice's own transaction (may clear previous dues too).
+    private BigDecimal amountReceived;
     private PaymentStatus paymentStatus;
 }

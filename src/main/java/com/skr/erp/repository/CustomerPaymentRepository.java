@@ -21,4 +21,8 @@ public interface CustomerPaymentRepository extends JpaRepository<CustomerPayment
     // All of a customer's payments (newest first) with their sale, for the payment history.
     @Query("SELECT p FROM CustomerPayment p JOIN FETCH p.salesOrder s WHERE s.customerMobile = :mobile ORDER BY p.createdAt DESC")
     List<CustomerPayment> findByCustomerMobile(@Param("mobile") String mobile);
+
+    // Payments made at one invoice's checkout that cleared OTHER (older) invoices — the previous-due breakdown.
+    @Query("SELECT p FROM CustomerPayment p JOIN FETCH p.salesOrder s WHERE p.referenceInvoiceNo = :invoiceNo ORDER BY s.createdAt ASC")
+    List<CustomerPayment> findByReferenceInvoiceNo(@Param("invoiceNo") String invoiceNo);
 }

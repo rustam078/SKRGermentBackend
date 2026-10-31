@@ -35,6 +35,7 @@ public class SalesDetailsResponse {
     private BigDecimal totalProfit;
     private List<SalesItemResponse> items;
     private List<Clearance> clearances;  // payments that cleared this invoice from a later checkout
+    private List<PreviousDue> previousDuesAllocation; // older invoices this checkout's payment cleared
 
     /** One cross-invoice clearance: when, by which mode, how much, and the clearing invoice. */
     @Data
@@ -44,5 +45,13 @@ public class SalesDetailsResponse {
         private PaymentMode mode;
         private BigDecimal amount;
         private String referenceInvoiceNo;
+    }
+
+    /** One older invoice cleared by this checkout's payment (invoice no + amount applied). */
+    @Data
+    @Builder
+    public static class PreviousDue {
+        private String invoiceNumber;
+        private BigDecimal amount;
     }
 }

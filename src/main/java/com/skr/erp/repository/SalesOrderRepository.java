@@ -49,30 +49,36 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID>, J
             """)
     SalesSummaryProjection countAndTotalRevenue();
 
-    // Sales totals for a date range (report summary): count, subtotal, discount, tax, grand total, amount received.
+    // Sales totals for a date range (report summary): count, subtotal, discount, tax, grand total,
+    // amount received (actual cash tendered), due (summed per-invoice, floored at 0 so never negative).
     @Query("""
                 SELECT COUNT(s), COALESCE(SUM(s.subtotal), 0), COALESCE(SUM(s.discount), 0),
-                       COALESCE(SUM(s.tax), 0), COALESCE(SUM(s.grandTotal), 0), COALESCE(SUM(s.amountReceived), 0)
+                       COALESCE(SUM(s.tax), 0), COALESCE(SUM(s.grandTotal), 0),
+                       COALESCE(SUM(s.amountReceived), 0),
+                       COALESCE(SUM(CASE WHEN s.grandTotal > s.amountPaid THEN s.grandTotal - s.amountPaid ELSE 0 END), 0)
                 FROM SalesOrder s
                 WHERE s.createdAt >= :start AND s.createdAt < :end
             """)
     List<Object[]> reportSummaryBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     // Invoice-wise detail for the sales report, latest first (matches the on-screen table order).
+    // Received = amountReceived (actual cash tendered); amountPaid drives the per-invoice due + status.
     @Query("""
                 SELECT s.invoiceNo, s.createdAt, s.customerName, s.customerMobile,
-                       s.grandTotal, s.amountReceived
+                       s.grandTotal, s.amountReceived, s.amountPaid
                 FROM SalesOrder s
                 WHERE s.createdAt >= :start AND s.createdAt < :end
                 ORDER BY s.createdAt DESC
             """)
     List<Object[]> salesInvoicesBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
-    // Filter-aware summary totals computed in SQL (count, revenue, discount, received) — avoids
-    // loading every matching sale into memory for the list header. `search` must be a pre-built
-    // lowercased %like% pattern (or null); start/end are the date bounds (or null).
+    // Filter-aware summary totals computed in SQL (count, revenue, discount, received, due) — avoids
+    // loading every matching sale into memory for the list header. received = actual cash tendered;
+    // due is summed per-invoice and floored at 0 so it can never go negative.
     @Query("""
-                SELECT COUNT(s), COALESCE(SUM(s.grandTotal), 0), COALESCE(SUM(s.discount), 0), COALESCE(SUM(s.amountPaid), 0)
+                SELECT COUNT(s), COALESCE(SUM(s.grandTotal), 0), COALESCE(SUM(s.discount), 0),
+                       COALESCE(SUM(s.amountReceived), 0),
+                       COALESCE(SUM(CASE WHEN s.grandTotal > s.amountPaid THEN s.grandTotal - s.amountPaid ELSE 0 END), 0)
                 FROM SalesOrder s
                 WHERE (:search IS NULL OR LOWER(s.invoiceNo) LIKE :search OR LOWER(s.customerName) LIKE :search OR LOWER(s.customerMobile) LIKE :search)
                   AND (CAST(:start AS timestamp) IS NULL OR s.createdAt >= :start)

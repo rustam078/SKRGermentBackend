@@ -88,7 +88,7 @@ public class ReportService {
         ReportPeriod p = ReportPeriod.of(from, to);
         Object[] t = salesOrderRepository.reportSummaryBetween(p.start(), p.endExclusive()).get(0);
         BigDecimal mrp = asBig(t[1]), discount = asBig(t[2]);
-        BigDecimal due = asBig(t[4]).subtract(asBig(t[5]));
+        BigDecimal due = asBig(t[6]);
         List<String[]> summary = List.of(
                 new String[]{"Total Sales", support.num(asLong(t[0]))},
                 new String[]{"MRP Total", support.money(mrp)},
@@ -109,7 +109,7 @@ public class ReportService {
     private Map<String, String> salesValues(ReportPeriod p) {
         Object[] t = salesOrderRepository.reportSummaryBetween(p.start(), p.endExclusive()).get(0);
         BigDecimal mrp = asBig(t[1]), discount = asBig(t[2]);
-        BigDecimal received = asBig(t[5]), due = asBig(t[4]).subtract(received);
+        BigDecimal received = asBig(t[5]), due = asBig(t[6]);
         Map<String, String> v = base(p);
         v.put("totalSales", support.num(asLong(t[0])));
         v.put("mrpTotal", support.money(mrp));
@@ -201,8 +201,8 @@ public class ReportService {
         if (rows.isEmpty()) return emptyRow(8);
         StringBuilder sb = new StringBuilder();
         for (Object[] r : rows) {
-            BigDecimal grand = asBig(r[4]), received = asBig(r[5]);
-            BigDecimal due = grand.subtract(received).max(BigDecimal.ZERO);
+            BigDecimal grand = asBig(r[4]), received = asBig(r[5]), paid = asBig(r[6]);
+            BigDecimal due = grand.subtract(paid).max(BigDecimal.ZERO);
             sb.append("<tr><td>").append(support.esc(str(r[0]))).append("</td>")
                     .append("<td>").append(dayMonth(r[1])).append("</td>")
                     .append("<td>").append(customer(r[2])).append("</td>")
@@ -210,15 +210,15 @@ public class ReportService {
                     .append("<td class=\"num\">").append(support.money(grand)).append("</td>")
                     .append("<td class=\"num\">").append(received.signum() == 0 ? DASH : support.money(received)).append("</td>")
                     .append("<td class=\"num\">").append(due.signum() == 0 ? DASH : support.money(due)).append("</td>")
-                    .append("<td class=\"ctr\">").append(statusPill(received, due)).append("</td></tr>");
+                    .append("<td class=\"ctr\">").append(statusPill(paid, due)).append("</td></tr>");
         }
         return sb.toString();
     }
 
-    // Status pill: Paid (no shade), Partial (light shade), Unpaid (darker shade).
-    private String statusPill(BigDecimal received, BigDecimal due) {
+    // Status pill from the amount applied to this invoice: Paid (no due), Partial (some paid), Unpaid.
+    private String statusPill(BigDecimal paid, BigDecimal due) {
         if (due.signum() <= 0) return "<span class=\"st\">Paid</span>";
-        if (received.signum() > 0) return "<span class=\"st partial\">Partial</span>";
+        if (paid.signum() > 0) return "<span class=\"st partial\">Partial</span>";
         return "<span class=\"st unpaid\">Unpaid</span>";
     }
 
@@ -226,9 +226,9 @@ public class ReportService {
     private List<List<String>> invoiceExcelRows(List<Object[]> rows) {
         List<List<String>> out = new ArrayList<>();
         for (Object[] r : rows) {
-            BigDecimal grand = asBig(r[4]), received = asBig(r[5]);
-            BigDecimal due = grand.subtract(received).max(BigDecimal.ZERO);
-            String status = due.signum() <= 0 ? "Paid" : received.signum() > 0 ? "Partial" : "Unpaid";
+            BigDecimal grand = asBig(r[4]), received = asBig(r[5]), paid = asBig(r[6]);
+            BigDecimal due = grand.subtract(paid).max(BigDecimal.ZERO);
+            String status = due.signum() <= 0 ? "Paid" : paid.signum() > 0 ? "Partial" : "Unpaid";
             out.add(List.of(str(r[0]), dayMonth(r[1]), customerText(r[2]), mobileText(r[3]),
                     support.money(grand), support.money(received), support.money(due), status));
         }

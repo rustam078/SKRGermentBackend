@@ -23,4 +23,19 @@ public interface InvestmentPaymentRepository extends JpaRepository<InvestmentPay
     // All payments for a vendor (newest first), with the invoice loaded for the history view.
     @Query("SELECT p FROM InvestmentPayment p JOIN FETCH p.investment i WHERE i.vendor.id = :vendorId ORDER BY p.createdAt DESC")
     List<InvestmentPayment> findByVendorId(@Param("vendorId") UUID vendorId);
+
+    // Every payment belonging to the given payment groups, invoice loaded (for the allocation breakdown).
+    @Query("SELECT p FROM InvestmentPayment p JOIN FETCH p.investment i WHERE p.paymentGroupId IN :groupIds ORDER BY i.purchaseDate ASC, p.createdAt ASC")
+    List<InvestmentPayment> findByGroupIds(@Param("groupIds") List<UUID> groupIds);
+
+    // Total amount actually received per transaction, attributed to the invoice the payment was made from
+    // (the newest invoice in each payment group). Used for the "Amount Received" column in the list.
+    @Query(value =
+            "SELECT o.investment_id, g.total FROM " +
+            "(SELECT COALESCE(payment_group_id, id) gid, SUM(amount) total FROM investment_payment GROUP BY COALESCE(payment_group_id, id)) g " +
+            "JOIN (SELECT DISTINCT ON (COALESCE(p.payment_group_id, p.id)) COALESCE(p.payment_group_id, p.id) gid, p.investment_id " +
+            "      FROM investment_payment p JOIN investment i ON i.id = p.investment_id " +
+            "      ORDER BY COALESCE(p.payment_group_id, p.id), i.created_at DESC) o ON o.gid = g.gid",
+            nativeQuery = true)
+    List<Object[]> receivedByOriginInvoice();
 }

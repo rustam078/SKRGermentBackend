@@ -97,7 +97,7 @@ public class InvestmentService {
     }
 
     // Optional payment captured on the Create Investment form.
-    // Vendor purchases clear the oldest dues first, then this invoice; overhead pays only itself.
+    // This invoice is paid first, then the vendor's older dues oldest-first; overhead pays only itself.
     private void recordCreationPayment(Investment investment, CreateInvestmentRequest request) {
         PaymentMode mode = request.getPaymentMode() != null ? request.getPaymentMode() : PaymentMode.CASH;
         LocalDate date = request.getPaymentDate() != null ? request.getPaymentDate() : LocalDate.now();
@@ -112,11 +112,15 @@ public class InvestmentService {
             return;
         }
 
-        List<Investment> ledger = investmentRepository
-                .findByVendorIdOrderByPurchaseDateAscCreatedAtAsc(investment.getVendor().getId());
+        // This new invoice first, then the vendor's other dues oldest-first.
+        List<Investment> ledger = new ArrayList<>();
+        ledger.add(investment);
+        for (Investment inv : investmentRepository.findByVendorIdOrderByPurchaseDateAscCreatedAtAsc(investment.getVendor().getId())) {
+            if (!inv.getId().equals(investment.getId())) ledger.add(inv);
+        }
         BigDecimal amount = Boolean.TRUE.equals(request.getFullPayment())
                 ? totalOutstanding(ledger) : request.getPaymentAmount();
-        allocateOldestFirst(ledger, amount, date, mode, ref);
+        allocateAcrossLedger(ledger, amount, date, mode, ref);
     }
 
     /** Remaining due of one invoice (grand total minus what is already paid). */
@@ -129,8 +133,8 @@ public class InvestmentService {
         return ledger.stream().map(this::dueOf).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    /** Apply the amount to invoices oldest first, capping each at its due. */
-    private void allocateOldestFirst(List<Investment> ledger, BigDecimal amount, LocalDate date, PaymentMode mode, String reference) {
+    /** Apply the amount to invoices in ledger order (this invoice first, then older dues), capping each at its due. */
+    private void allocateAcrossLedger(List<Investment> ledger, BigDecimal amount, LocalDate date, PaymentMode mode, String reference) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
@@ -302,28 +306,37 @@ public class InvestmentService {
         for (Vendor v : vendorRepository.findAll()) {
             vendorNameById.put(v.getId(), v.getName());
         }
+        Map<UUID, BigDecimal> receivedByInvestment = new HashMap<>();
+        for (Object[] row : investmentPaymentRepository.receivedByOriginInvoice()) {
+            UUID invId = row[0] instanceof UUID u ? u : UUID.fromString(String.valueOf(row[0]));
+            receivedByInvestment.merge(invId, new BigDecimal(String.valueOf(row[1])), BigDecimal::add);
+        }
 
         // Latest purchase date on top; same date → latest created time first.
         Sort sort = Sort.by(Sort.Order.desc("purchaseDate"), Sort.Order.desc("createdAt"));
+        ListAggregates agg = new ListAggregates(paidByInvestment, itemCountByInvestment, vendorNameById, receivedByInvestment);
         return investmentRepository.findAll(specification, sort).stream()
-                .map(inv -> toListResponse(inv,
-                        paidByInvestment.getOrDefault(inv.getId(), BigDecimal.ZERO),
-                        itemCountByInvestment.getOrDefault(inv.getId(), 0),
-                        vendorNameById))
+                .map(inv -> toListResponse(inv, agg))
                 .toList();
     }
 
-    // List mapping that reads vendor name + item count from pre-built maps (no lazy loads per row).
-    private InvestmentResponse toListResponse(Investment investment, BigDecimal paid, int itemCount, Map<UUID, String> vendorNameById) {
-        BigDecimal safePaid = paid == null ? BigDecimal.ZERO : paid;
+    // Pre-built per-invoice lookups for the list view (keeps the row mapper free of lazy loads).
+    private record ListAggregates(Map<UUID, BigDecimal> paid, Map<UUID, Integer> itemCount,
+                                  Map<UUID, String> vendorName, Map<UUID, BigDecimal> received) {
+    }
+
+    // List mapping that reads every per-row value from pre-built maps (no lazy loads per row).
+    private InvestmentResponse toListResponse(Investment investment, ListAggregates agg) {
+        BigDecimal safePaid = agg.paid().getOrDefault(investment.getId(), BigDecimal.ZERO);
         UUID vendorId = investment.getVendor() != null ? investment.getVendor().getId() : null;
         return InvestmentResponse.builder()
                 .id(investment.getId()).invoiceNumber(investment.getInvoiceNumber())
                 .vendorId(vendorId)
-                .vendorName(vendorId != null ? vendorNameById.get(vendorId) : null)
+                .vendorName(vendorId != null ? agg.vendorName().get(vendorId) : null)
                 .investmentType(investment.getInvestmentType()).purchaseDate(investment.getPurchaseDate())
                 .createdAt(investment.getCreatedAt())
-                .itemCount(itemCount).grandTotal(investment.getGrandTotal())
+                .itemCount(agg.itemCount().getOrDefault(investment.getId(), 0)).grandTotal(investment.getGrandTotal())
+                .amountReceived(agg.received().getOrDefault(investment.getId(), BigDecimal.ZERO))
                 .amountPaid(safePaid).paymentStatus(computeStatus(safePaid, investment.getGrandTotal())).build();
     }
 
@@ -374,7 +387,7 @@ public class InvestmentService {
                 .discountAmount(investment.getDiscountAmount()).otherCharge(investment.getOtherCharge())
                 .grandTotal(investment.getGrandTotal()).amountPaid(paid).amountDue(investment.getGrandTotal()
                         .subtract(paid).max(BigDecimal.ZERO)).paymentStatus(computeStatus(paid, investment.getGrandTotal()))
-                .payments(payments.stream().map(this::toPaymentResponse).toList())
+                .payments(toPaymentResponsesWithAllocations(investment.getId(), payments))
                 .items(investment.getItems().stream().map(this::toItemResponse).toList()).build();
     }
 
@@ -465,9 +478,103 @@ public class InvestmentService {
     }
 
     private InvestmentPaymentResponse toPaymentResponse(InvestmentPayment p) {
+        return paymentBuilder(p).build();
+    }
+
+    private InvestmentPaymentResponse.InvestmentPaymentResponseBuilder paymentBuilder(InvestmentPayment p) {
         return InvestmentPaymentResponse.builder()
                 .id(p.getId()).paymentDate(p.getPaymentDate()).mode(p.getMode())
-                .amount(p.getAmount()).reference(p.getReference()).createdAt(p.getCreatedAt()).build();
+                .amount(p.getAmount()).reference(p.getReference()).createdAt(p.getCreatedAt());
+    }
+
+    // Attach the cross-invoice allocation to any payment that was split across several invoices.
+    private List<InvestmentPaymentResponse> toPaymentResponsesWithAllocations(UUID investmentId, List<InvestmentPayment> payments) {
+        Map<UUID, List<InvestmentPayment>> byGroup = paymentGroups(payments);
+        return payments.stream().map(p -> withAllocation(p, byGroup.get(p.getPaymentGroupId()), investmentId)).toList();
+    }
+
+    private InvestmentPaymentResponse withAllocation(InvestmentPayment p, List<InvestmentPayment> group, UUID thisInvoiceId) {
+        InvestmentPaymentResponse.InvestmentPaymentResponseBuilder b = paymentBuilder(p);
+        // Nothing extra for a plain single-invoice payment.
+        if (group == null || group.stream().map(x -> x.getInvestment().getId()).distinct().count() <= 1) {
+            return b.build();
+        }
+        Investment origin = originInvoice(group);
+        if (origin.getId().equals(thisInvoiceId)) {
+            // Origin invoice: show the whole payment and where every rupee went.
+            BigDecimal total = group.stream().map(InvestmentPayment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            b.groupOrigin(true).groupTotal(total).allocations(toAllocations(group, thisInvoiceId));
+        } else {
+            // Other cleared invoice: just a reference to the invoice it was paid from.
+            b.clearedFromInvoice(origin.getInvoiceNumber());
+        }
+        return b.build();
+    }
+
+    // The invoice the split payment was entered from = the newest one in the group.
+    private Investment originInvoice(List<InvestmentPayment> group) {
+        return group.stream().map(InvestmentPayment::getInvestment)
+                .max(Comparator.comparing(Investment::getCreatedAt)).orElseGet(() -> group.get(0).getInvestment());
+    }
+
+    private List<InvestmentPaymentResponse.Allocation> toAllocations(List<InvestmentPayment> group, UUID thisInvoiceId) {
+        return group.stream()
+                .map(x -> InvestmentPaymentResponse.Allocation.builder()
+                        .invoiceNumber(x.getInvestment().getInvoiceNumber())
+                        .amount(x.getAmount())
+                        .thisInvoice(x.getInvestment().getId().equals(thisInvoiceId)).build())
+                .toList();
+    }
+
+    // Group a set of payments by their payment group (loads every sibling row with its invoice).
+    private Map<UUID, List<InvestmentPayment>> paymentGroups(List<InvestmentPayment> payments) {
+        List<UUID> groupIds = payments.stream().map(InvestmentPayment::getPaymentGroupId).filter(Objects::nonNull).distinct().toList();
+        Map<UUID, List<InvestmentPayment>> byGroup = new HashMap<>();
+        if (!groupIds.isEmpty()) {
+            for (InvestmentPayment gp : investmentPaymentRepository.findByGroupIds(groupIds)) {
+                byGroup.computeIfAbsent(gp.getPaymentGroupId(), k -> new ArrayList<>()).add(gp);
+            }
+        }
+        return byGroup;
+    }
+
+    private record PdfFmt(NumberFormat nf, String cur) {
+    }
+
+    // One invoice PDF payment row, with the same split-payment handling as the details drawer.
+    private String paymentPdfRow(InvestmentPayment p, List<InvestmentPayment> group, UUID thisInvoiceId, PdfFmt fmt) {
+        String date = p.getPaymentDate() != null ? p.getPaymentDate().format(DTF_DATE) : "-";
+        String mode = p.getMode() != null ? titleCase(p.getMode().name()) : "-";
+        boolean cross = group != null && group.stream().map(x -> x.getInvestment().getId()).distinct().count() > 1;
+        if (cross) {
+            Investment origin = originInvoice(group);
+            if (!origin.getId().equals(thisInvoiceId)) {
+                return pdfRow3(date, mode, fmt.cur() + money(fmt.nf(), p.getAmount()))
+                        + pdfNoteRow("Cleared via payment on " + date + " &#183; " + esc(origin.getInvoiceNumber()));
+            }
+            BigDecimal total = group.stream().map(InvestmentPayment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            return pdfRow3(date, mode, fmt.cur() + money(fmt.nf(), total)) + pdfAllocationRow(group, thisInvoiceId, fmt);
+        }
+        return pdfRow3(date, mode, fmt.cur() + money(fmt.nf(), p.getAmount()));
+    }
+
+    private String pdfRow3(String date, String mode, String amount) {
+        return "<tr><td>" + date + "</td><td>" + mode + "</td><td class=\"right\">" + amount + "</td></tr>";
+    }
+
+    private String pdfNoteRow(String text) {
+        return "<tr><td colspan=\"3\" style=\"color:#666666;font-size:10px;padding-left:12px;\">" + text + "</td></tr>";
+    }
+
+    // Under the origin row: "This invoice ₹X; INV-00 (previous due) ₹Y" (no leading label).
+    private String pdfAllocationRow(List<InvestmentPayment> group, UUID thisInvoiceId, PdfFmt fmt) {
+        List<String> parts = new ArrayList<>();
+        for (InvestmentPayment x : group) {
+            boolean self = x.getInvestment().getId().equals(thisInvoiceId);
+            String label = self ? "This invoice" : esc(x.getInvestment().getInvoiceNumber()) + " (previous due)";
+            parts.add(label + " " + fmt.cur() + money(fmt.nf(), x.getAmount()));
+        }
+        return pdfNoteRow(String.join("; ", parts));
     }
 
     // ── Invoice PDF ───────────────────────────────
@@ -505,8 +612,10 @@ public class InvestmentService {
         }
 
         StringBuilder prows = new StringBuilder();
+        Map<UUID, List<InvestmentPayment>> byGroup = paymentGroups(payments);
+        PdfFmt fmt = new PdfFmt(nf, cur);
         for (InvestmentPayment p : payments) {
-            prows.append("<tr>").append("<td>").append(p.getPaymentDate() != null ? p.getPaymentDate().format(DTF_DATE) : "-").append("</td>").append("<td>").append(p.getMode() != null ? titleCase(p.getMode().name()) : "-").append("</td>").append("<td class=\"right\">").append(cur).append(money(nf, p.getAmount())).append("</td>").append("</tr>");
+            prows.append(paymentPdfRow(p, byGroup.get(p.getPaymentGroupId()), inv.getId(), fmt));
         }
         if (prows.length() == 0) {
             prows.append("<tr><td colspan=\"3\" style=\"text-align:center;color:#999999;\">No payments recorded</td></tr>");

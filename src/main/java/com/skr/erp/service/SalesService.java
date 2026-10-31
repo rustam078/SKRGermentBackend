@@ -423,13 +423,14 @@ public class SalesService {
         long count = ((Number) t[0]).longValue();
         BigDecimal revenue = (BigDecimal) t[1];
         BigDecimal discount = (BigDecimal) t[2];
-        BigDecimal received = (BigDecimal) t[3];
+        BigDecimal received = (BigDecimal) t[3]; // actual cash tendered (may exceed billed, clears old dues)
+        BigDecimal due = (BigDecimal) t[4];      // per-invoice due, floored at 0 in SQL
         return SalesSummaryResponse.builder()
                 .count(count)
                 .revenue(revenue)
                 .discount(discount)
                 .received(received)
-                .due(revenue.subtract(received))
+                .due(due)
                 .build();
     }
 
@@ -516,6 +517,7 @@ public class SalesService {
         if (inv.getPaidToPreviousDues() != null && inv.getPaidToPreviousDues().compareTo(BigDecimal.ZERO) > 0) {
             sb.append("<tr><td>Towards Previous Dues</td><td class=\"right\">").append(cur).append(" ")
                     .append(money(nf, inv.getPaidToPreviousDues())).append("</td></tr>");
+            previousDueRows(nf, inv.getPreviousDuesAllocation(), sb, cur);
         }
         if (inv.getBalanceDue() != null && inv.getBalanceDue().compareTo(BigDecimal.ZERO) > 0) {
             sb.append("<tr class=\"grand\"><td>Balance Due</td><td class=\"right\">").append(cur).append(" ")
@@ -523,6 +525,16 @@ public class SalesService {
         }
         clearanceRows(nf, inv.getClearances(), sb, cur);
         return sb.toString();
+    }
+
+    // Sub-lines under "Towards Previous Dues": each older invoice cleared + amount (sums to the total).
+    private void previousDueRows(NumberFormat nf, List<SalesDetailsResponse.PreviousDue> dues, StringBuilder sb, String cur) {
+        if (dues == null || dues.isEmpty()) return;
+        for (SalesDetailsResponse.PreviousDue d : dues) {
+            sb.append("<tr><td style=\"padding-left:16px;color:#666666;font-size:11px;\">&#8226; ")
+                    .append(esc(d.getInvoiceNumber())).append("</td><td class=\"right\" style=\"color:#666666;font-size:11px;\">")
+                    .append(cur).append(" ").append(money(nf, d.getAmount())).append("</td></tr>");
+        }
     }
 
     // Lines showing this invoice's due later cleared from another invoice's checkout.
@@ -744,6 +756,7 @@ public class SalesService {
                 .totalProfit(totalProfit)
                 .items(itemResponses)
                 .clearances(clearancesOf(order.getId()))
+                .previousDuesAllocation(previousDuesAllocationOf(order.getInvoiceNo()))
                 .build();
     }
 
@@ -754,6 +767,15 @@ public class SalesService {
                 .map(p -> SalesDetailsResponse.Clearance.builder()
                         .date(p.getPaymentDate()).mode(p.getMode())
                         .amount(p.getAmount()).referenceInvoiceNo(p.getReferenceInvoiceNo()).build())
+                .toList();
+    }
+
+    // Older invoices that this checkout's payment cleared (invoice no + amount) — sums to paidToPreviousDues.
+    private List<SalesDetailsResponse.PreviousDue> previousDuesAllocationOf(String invoiceNo) {
+        return customerPaymentRepository.findByReferenceInvoiceNo(invoiceNo).stream()
+                .map(p -> SalesDetailsResponse.PreviousDue.builder()
+                        .invoiceNumber(p.getSalesOrder().getInvoiceNo())
+                        .amount(p.getAmount()).build())
                 .toList();
     }
 
@@ -800,8 +822,9 @@ public class SalesService {
                 .grandTotal(order.getGrandTotal())
                 .amountReceived(nz(order.getAmountReceived()))
                 .paidToPreviousDues(prevDuesOf(order))
-                .balanceDue(customerBalance(order.getCustomerMobile()))
+                .balanceDue(dueOf(order)) // this invoice's own due only (not the customer's overall balance)
                 .clearances(clearancesOf(order.getId()))
+                .previousDuesAllocation(previousDuesAllocationOf(order.getInvoiceNo()))
                 .build();
     }
 
