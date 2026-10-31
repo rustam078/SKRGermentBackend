@@ -6,12 +6,17 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 public interface InvestmentPaymentRepository extends JpaRepository<InvestmentPayment, UUID> {
 
     List<InvestmentPayment> findByInvestmentIdOrderByPaymentDateDescCreatedAtDesc(UUID investmentId);
+
+    // Total paid toward investments whose purchase date falls in the range (for the expenses-due KPI).
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM InvestmentPayment p WHERE p.investment.purchaseDate >= :from AND p.investment.purchaseDate <= :to")
+    BigDecimal paidForInvestmentsBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM InvestmentPayment p WHERE p.investment.id = :id")
     BigDecimal sumByInvestment(@Param("id") UUID id);

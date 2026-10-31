@@ -34,6 +34,7 @@ public class DashboardResponse {
     // ── Investment / expenses (date-ranged) ──────────────
     private long investmentCount;
     private BigDecimal investmentTotal;
+    private BigDecimal expensesDue;
 
     // ── Inventory (current snapshot) ─────────────────────
     private BigDecimal inventoryStockValue;

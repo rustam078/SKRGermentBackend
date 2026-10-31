@@ -25,6 +25,7 @@ public class DashboardService {
     private final SalesOrderItemRepository salesOrderItemRepository;
     private final ProductionEntryDetailRepository productionEntryDetailRepository;
     private final InvestmentRepository investmentRepository;
+    private final InvestmentPaymentRepository investmentPaymentRepository;
     private final InventoryBatchRepository inventoryBatchRepository;
     private final EmployeeRepository employeeRepository;
     private final InventoryService inventoryService;
@@ -100,6 +101,8 @@ public class DashboardService {
         Object[] invAgg = first(investmentRepository.aggregateInvestmentBetween(from, to));
         long investmentCount = lng(invAgg[0]);
         BigDecimal investmentTotal = bd(invAgg[1]);
+        BigDecimal investmentPaid = bd(investmentPaymentRepository.paidForInvestmentsBetween(from, to));
+        BigDecimal expensesDue = investmentTotal.subtract(investmentPaid).max(BigDecimal.ZERO);
 
         // ── Inventory snapshot ───────────────────────────
         Object[] stockAgg = first(inventoryBatchRepository.aggregateActiveInventory());
@@ -172,6 +175,7 @@ public class DashboardService {
                 .productionAmount(productionAmount)
                 .investmentCount(investmentCount)
                 .investmentTotal(investmentTotal)
+                .expensesDue(expensesDue)
                 .inventoryStockValue(inventoryStockValue)
                 .inventoryUnits(inventoryUnits)
                 .lowStockCount(lowStockCount)
