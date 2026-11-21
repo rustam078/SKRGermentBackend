@@ -192,7 +192,7 @@ public class ProductService {
     }
 
     private static BigDecimal currentPrice(List<StockPriceResponse> steps, BigDecimal basePrice) {
-        return steps != null && !steps.isEmpty() ? steps.get(0).price() : basePrice;
+        return steps != null && !steps.isEmpty() ? steps.getFirst().price() : basePrice;
     }
 
     public ProductRateResponse addRate(UUID productId, CreateProductRateRequest request) {
