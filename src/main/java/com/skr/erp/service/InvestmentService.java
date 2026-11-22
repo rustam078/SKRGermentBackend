@@ -159,7 +159,6 @@ public class InvestmentService {
     }
 
     private void createInventoryBatches(Investment investment) {
-
         for (InvestmentItem item : investment.getItems()) {
             if (item.getItemType() != InvestmentItemType.PRODUCT) {
                 continue;

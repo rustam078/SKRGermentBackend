@@ -45,24 +45,53 @@ public class InventoryService {
 
     @Transactional
     public void createPurchaseBatch(InvestmentItem investmentItem) {
+        Product product = investmentItem.getProduct();
+        if (product == null) return;
+        BigDecimal qty = investmentItem.getQuantity();
+        BigDecimal unitCost = investmentItem.getRate();
 
-        InventoryBatch batch = new InventoryBatch();
-        batch.setBatchNumber(generateBatchNumber.generate());
-        batch.setProduct(investmentItem.getProduct());
-        batch.setSource(ProductSource.PURCHASED.name());
-        batch.setSourceId(investmentItem.getId());
-        batch.setReceivedDate(investmentItem.getInvestment().getPurchaseDate());
-        batch.setQuantityReceived(investmentItem.getQuantity());
-        batch.setQuantityAvailable(investmentItem.getQuantity());
-        batch.setUnitCost(investmentItem.getRate());
-        // Selling price for this lot: the entered MRP, else the product's default sale price.
+        // Use the purchase item's entered MRP, otherwise the current product sale price.
         BigDecimal sellingPrice = investmentItem.getSellingPrice() != null
                 ? investmentItem.getSellingPrice()
-                : getCurrentSalePrice(investmentItem.getProduct().getId());
-        batch.setSellingPrice(sellingPrice);
-        batch.setTotalCost(investmentItem.getTotalAmount());
-        batch.setStatus(InventoryBatchStatus.ACTIVE);
-        batch.setRemarks("Purchase Entry");
+                : getCurrentSalePrice(product.getId());
+
+        InventoryBatch batch = null;
+
+        // Find an existing batch with the same product, unit cost and selling price.
+        if (sellingPrice != null) {
+            batch = inventoryBatchRepository
+                    .findMergeableBatches(product.getId(), unitCost, sellingPrice)
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        if (batch != null) {
+            // Merge purchase quantity into the existing batch.
+            batch.setQuantityReceived(batch.getQuantityReceived().add(qty));
+            batch.setQuantityAvailable(batch.getQuantityAvailable().add(qty));
+            batch.setTotalCost(batch.getQuantityReceived().multiply(unitCost));
+
+            // Re-activate the batch if it was previously sold out.
+            batch.setStatus(InventoryBatchStatus.ACTIVE);
+
+        } else {
+            // Create a new batch when no matching batch exists.
+            batch = new InventoryBatch();
+            batch.setBatchNumber(generateBatchNumber.generate());
+            batch.setProduct(product);
+            batch.setSource(ProductSource.PURCHASED.name());
+            batch.setSourceId(investmentItem.getId());
+            batch.setReceivedDate(investmentItem.getInvestment().getPurchaseDate());
+            batch.setQuantityReceived(qty);
+            batch.setQuantityAvailable(qty);
+            batch.setUnitCost(unitCost);
+            batch.setSellingPrice(sellingPrice);
+            batch.setTotalCost(investmentItem.getTotalAmount());
+            batch.setStatus(InventoryBatchStatus.ACTIVE);
+            batch.setRemarks("Purchase Entry");
+        }
+
         inventoryBatchRepository.save(batch);
     }
 
