@@ -24,8 +24,6 @@ public interface InventoryBatchRepository extends JpaRepository<InventoryBatch, 
     @Query("""
             SELECT b FROM InventoryBatch b
             WHERE b.product.id = :productId
-            AND b.status = com.skr.erp.common.constants.InventoryBatchStatus.ACTIVE
-            AND b.source = 'MANUFACTURED'
             AND b.unitCost = :unitCost
             AND b.sellingPrice = :sellingPrice
             ORDER BY b.receivedDate DESC, b.createdAt DESC

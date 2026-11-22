@@ -84,6 +84,7 @@ public class InventoryService {
             batch.setQuantityReceived(batch.getQuantityReceived().add(qty));
             batch.setQuantityAvailable(batch.getQuantityAvailable().add(qty));
             batch.setTotalCost(batch.getQuantityReceived().multiply(unitCost));
+            batch.setStatus(InventoryBatchStatus.ACTIVE);
         } else {
             batch = new InventoryBatch();
             batch.setBatchNumber(generateBatchNumber.generate());
